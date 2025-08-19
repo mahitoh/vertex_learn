@@ -1,0 +1,349 @@
+vertex_learn ERP System: Detailed Feature Functionality
+General Features
+1. User Authentication System (10 Marks)
+Purpose: Securely authenticate users with role-based access control (RBAC) for Admins, Students, and Staff, ensuring only authorized users access specific modules and data.
+Functionality:
+
+Roles:
+Admin: Full access to all modules (Academic, Finance, HR), including reports and user management.
+Student: Access to Academic module (view courses, grades, attendance, pay fees).
+Staff: Access to Academic (instructors) and HR (personal records, leave requests) based on role.
+
+
+Login Process:
+Users enter email and password on a React-based login page.
+Backend validates credentials using bcrypt to compare hashed passwords.
+On success, a JSON Web Token (JWT) is generated and stored in an HTTP-only cookie for security.
+Users are redirected to role-specific dashboards (e.g., Student Dashboard for students).
+
+
+Session Management:
+JWT is validated on each protected API request via Express middleware.
+Token expires after a set period (e.g., 1 hour), requiring re-login.
+Logout clears the JWT cookie and redirects to the login page.
+
+
+Security:
+Passwords are hashed using bcrypt before storage in PostgreSQL.
+JWT uses a secret key stored in .env (e.g., JWT_SECRET).
+HTTPS enforced in production to secure data transmission.
+
+
+
+Implementation Details:
+
+Frontend: React component (Login.tsx) with form validation (e.g., email format, password length).
+Backend: Express route (POST /api/auth/login) checks credentials and issues JWT.
+Database: users table (user_id, email, password_hash, role, created_at).
+Libraries: jsonwebtoken, bcrypt.
+Example API:POST /api/auth/login
+Request: { "email": "student@school.com", "password": "pass123" }
+Response: { "token": "jwt_token", "role": "student" }
+
+
+
+2. Database Management (10 Marks)
+Purpose: Store and manage all ERP data in a normalized PostgreSQL database with backup and recovery capabilities.
+Functionality:
+
+Schema Design:
+Users: Stores user credentials and roles.
+Academic: Tables for courses (course_id, name, credits), students (student_id, name), grades (student_id, course_id, score), attendance (student_id, course_id, date, status), exams (exam_id, course_id, date).
+Finance: Tables for invoices (invoice_id, student_id, amount, status), expenses (expense_id, amount, category), campaigns (campaign_id, leads, conversions).
+HR: Tables for employees (employee_id, name, role), payroll (payroll_id, employee_id, amount), leaves (leave_id, employee_id, status), assets (asset_id, name, assigned_to).
+
+
+Normalization: 3NF to eliminate redundancy (e.g., separate courses and grades tables linked by course_id).
+Data Integrity:
+Foreign key constraints (e.g., student_id in grades references students).
+Unique constraints (e.g., email in users).
+
+
+Backup and Recovery:
+Periodic backups using pg_dump (e.g., daily cron job: pg_dump vertex_learn > backup.sql).
+Recovery script to restore database using psql < backup.sql.
+
+
+
+Implementation Details:
+
+ORM: Sequelize for type-safe database interactions with TypeScript.
+Backup Script: Node.js script using child_process to run pg_dump.
+Example Query (for grades report):SELECT s.name, c.name AS course, g.score
+FROM students s
+JOIN grades g ON s.student_id = g.student_id
+JOIN courses c ON g.course_id = c.course_id;
+
+
+
+3. API Integration (10 Marks)
+Purpose: Enable seamless communication between modules and support third-party integrations via RESTful APIs.
+Functionality:
+
+API Design:
+Follows REST conventions (e.g., GET /api/academic/courses, POST /api/finance/invoice).
+Role-based access enforced via JWT middleware.
+
+
+Key Endpoints:
+Auth: POST /api/auth/login, POST /api/auth/logout.
+Academic: GET /api/academic/courses, POST /api/academic/grades.
+Finance: POST /api/finance/invoice, GET /api/finance/campaigns.
+HR: GET /api/hr/employees, POST /api/hr/leave.
+
+
+Documentation:
+Swagger UI provides interactive API docs at /api-docs.
+Documents endpoints, request/response formats, and authentication requirements.
+
+
+Data Flow:
+Frontend sends HTTP requests via Axios to backend APIs.
+Backend processes requests, queries PostgreSQL via Sequelize, and returns JSON responses.
+Example: Student Dashboard fetches grades via GET /api/academic/student/:id/grades.
+
+
+
+Implementation Details:
+
+Backend: Express.js with routes defined in modular files (e.g., routes/academic.ts).
+Documentation: Use swagger-jsdoc to annotate routes with OpenAPI specs.
+Example Swagger Definition:/api/academic/courses:
+  get:
+    summary: Retrieve all courses
+    security:
+      - bearerAuth: []
+    responses:
+      200:
+        description: List of courses
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                type: object
+                properties:
+                  course_id: { type: number }
+                  name: { type: string }
+
+
+
+Module-Specific Features
+1. Academic Module (15 Marks)
+Purpose: Manage courses, track student performance, schedule exams, and generate reports.
+Functionalities:
+
+Course and Program Management:
+How it Works: Admins create, update, or delete courses via a React form. Students and instructors view courses on their dashboards.
+Data Flow: Form submits data to POST /api/academic/courses, stored in courses table. GET /api/academic/courses fetches courses for display.
+UI: React component (CourseManagement.tsx) with input fields for course name, credits, and instructor.
+
+
+Student Performance Tracking:
+How it Works: Instructors enter grades and attendance via forms. Students view their grades and attendance on their dashboard.
+Data Flow: POST /api/academic/grades saves grades; POST /api/academic/attendance logs attendance. GET /api/academic/student/:id/grades retrieves data for dashboards.
+UI: Table for grades and attendance percentage displayed using Chart.js.
+
+
+Examination Scheduling and Results:
+How it Works: Admins schedule exams via a form. Results are published and accessible to students.
+Data Flow: POST /api/academic/exams stores exam schedules. GET /api/academic/exams displays schedules. POST /api/academic/results publishes results.
+UI: Calendar view for exam schedules; results shown in a table.
+
+
+Deliverables:
+CRUD Operations: Implemented via REST APIs (POST, GET, PUT, DELETE for courses, grades, exams).
+Dashboards:
+Student Dashboard: Shows enrolled courses, grades (Line chart), attendance (percentage), and upcoming exams.
+Instructor Dashboard: Displays assigned courses, student grades, and exam schedules.
+
+
+Reports:
+Generate PDF transcripts using pdfkit (e.g., list of courses and grades).
+Attendance summaries via SQL queries (e.g., SELECT student_id, COUNT(status) AS attended FROM attendance WHERE status = 'present' GROUP BY student_id).
+
+
+
+
+
+Implementation Details:
+
+Frontend: StudentDashboard.tsx (see previous artifact) uses Axios to fetch data and Chart.js for visualizations.
+Backend: Sequelize models for Course, Grade, Attendance, Exam.
+Example Chart (Grades visualization):{
+  "type": "line",
+  "data": {
+    "labels": ["Math", "Physics", "Chemistry"],
+    "datasets": [{
+      "label": "Grades",
+      "data": [85, 90, 78],
+      "borderColor": "rgba(75, 192, 192, 1)",
+      "backgroundColor": "rgba(75, 192, 192, 0.2)",
+      "fill": false
+    }]
+  },
+  "options": {
+    "responsive": true,
+    "scales": {
+      "y": {
+        "beginAtZero": true,
+        "max": 100
+      }
+    }
+  }
+}
+
+
+
+2. Marketing & Finance Module (15 Marks)
+Purpose: Manage tuition fees, track expenses, analyze marketing campaigns, and generate financial reports.
+Functionalities:
+
+Tuition Fee Management:
+How it Works: Admins generate invoices for students. Students view and pay invoices via a payment portal.
+Data Flow: POST /api/finance/invoice creates an invoice in the invoices table. GET /api/finance/invoice/:id retrieves invoice details. Payment updates status via PUT /api/finance/invoice/:id.
+UI: React-based payment portal (PaymentPortal.tsx) with invoice details and a "Pay Now" button (simulated payment for project purposes).
+Output: Generate PDF receipts using pdfkit after payment.
+
+
+Expense Tracking and Financial Reporting:
+How it Works: Admins log expenses (e.g., utilities, salaries). Monthly financial summaries are generated.
+Data Flow: POST /api/finance/expense saves expenses. GET /api/finance/expenses retrieves data for reports.
+UI: Expense form and table view in the Finance Dashboard.
+
+
+Marketing Campaign Tracking:
+How it Works: Admins track campaign metrics (leads, conversions, ROI). Analytics are visualized on a dashboard.
+Data Flow: POST /api/finance/campaign stores campaign data. GET /api/finance/campaigns fetches metrics.
+UI: Bar chart for leads/conversions using Chart.js.
+
+
+Deliverables:
+Fee Payment Portal: Displays invoices, payment status, and downloadable receipts.
+Analytics Dashboard: Visualizes revenue, expenses, and campaign ROI.
+Reports: Monthly financial summaries as PDFs (e.g., total revenue, expenses).
+
+
+
+Implementation Details:
+
+Frontend: FinanceDashboard.tsx with Chart.js for metrics visualization.
+Backend: Sequelize models for Invoice, Expense, Campaign.
+Example Chart (Campaign ROI):{
+  "type": "bar",
+  "data": {
+    "labels": ["Campaign A", "Campaign B", "Campaign C"],
+    "datasets": [{
+      "label": "ROI (%)",
+      "data": [120, 95, 150],
+      "backgroundColor": ["rgba(255, 99, 132, 0.6)", "rgba(54, 162, 235, 0.6)", "rgba(75, 192, 192, 0.6)"],
+      "borderColor": ["rgba(255, 99, 132, 1)", "rgba(54, 162, 235, 1)", "rgba(75, 192, 192, 1)"],
+      "borderWidth": 1
+    }]
+  },
+  "options": {
+    "responsive": true,
+    "scales": {
+      "y": {
+        "beginAtZero": true
+      }
+    }
+  }
+}
+
+
+
+3. Administration & Human Resource Module (15 Marks)
+Purpose: Manage employee records, payroll, leave requests, and assets with notifications.
+Functionalities:
+
+Employee Management:
+How it Works: Admins add/edit employee records. Staff view their profiles.
+Data Flow: POST /api/hr/employees creates records. GET /api/hr/employees lists employees with search (e.g., WHERE name LIKE '%query%').
+UI: React form for employee CRUD and searchable table.
+
+
+Leave and Performance Tracking:
+How it Works: Staff request leaves; admins approve/reject. Performance scores are recorded.
+Data Flow: POST /api/hr/leave submits leave requests. PUT /api/hr/leave/:id updates status. POST /api/hr/performance logs scores.
+UI: Leave request form and status display on HR Dashboard.
+
+
+Asset Management:
+How it Works: Admins track office assets (e.g., laptops, desks) and assignments.
+Data Flow: POST /api/hr/assets adds assets. GET /api/hr/assets lists assets.
+UI: Asset inventory table with assignment status.
+
+
+Notifications:
+How it Works: Email notifications for leave approvals (optional, using nodemailer).
+Data Flow: Trigger email on PUT /api/hr/leave/:id if status changes to "approved".
+
+
+Deliverables:
+Employee Records: Searchable table with CRUD operations.
+HR Dashboard: Displays leave status, payroll summaries, and performance metrics (e.g., Pie chart for leave types).
+Notifications: Email alerts for critical tasks (optional).
+
+
+
+Implementation Details:
+
+Frontend: HRDashboard.tsx with Chart.js for leave/performance visualizations.
+Backend: Sequelize models for Employee, Payroll, Leave, Asset.
+Example Chart (Leave Status):{
+  "type": "pie",
+  "data": {
+    "labels": ["Approved", "Pending", "Rejected"],
+    "datasets": [{
+      "data": [50, 30, 20],
+      "backgroundColor": ["rgba(75, 192, 192, 0.6)", "rgba(255, 206, 86, 0.6)", "rgba(255, 99, 132, 0.6)"],
+      "borderColor": ["rgba(75, 192, 192, 1)", "rgba(255, 206, 86, 1)", "rgba(255, 99, 132, 1)"],
+      "borderWidth": 1
+    }]
+  },
+  "options": {
+    "responsive": true
+  }
+}
+
+
+
+Collaboration and Development Notes
+
+Team Roles:
+Student 1: Frontend (React/TypeScript components, Tailwind CSS, Chart.js).
+Student 2: Backend (Express.js APIs, JWT, Sequelize).
+Student 3: Database (PostgreSQL schema, migrations, backup scripts).
+Student 4: API documentation (Swagger), testing (Jest, Postman).
+
+
+Data Flow Example (Student Dashboard):
+Student logs in (POST /api/auth/login).
+React fetches data (GET /api/academic/courses, GET /api/academic/grades).
+Backend queries PostgreSQL via Sequelize.
+Data is rendered in charts and tables using Chart.js and Tailwind CSS.
+
+
+Testing:
+Unit tests for components (Jest) and APIs (Mocha/Chai, Supertest).
+Example: Test POST /api/academic/grades ensures grade is saved correctly.
+
+
+Security:
+Sanitize inputs to prevent SQL injection (handled by Sequelize).
+Validate JWT for all protected routes.
+
+
+Scalability:
+Modular API routes (e.g., /academic, /finance, /hr) for easy expansion.
+TypeScript interfaces ensure consistent data structures across modules.
+
+
+
+Sample Workflow (Student Accessing Grades)
+
+Student logs in via Login.tsx, receiving a JWT.
+Redirected to StudentDashboard.tsx, which calls GET /api/academic/student/:id/grades.
+Backend queries grades table via Sequelize, returns JSON.
+React renders grades in a Line chart using Chart.js and displays course details in a Tailwind-styled table.

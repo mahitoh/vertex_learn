@@ -1,0 +1,33 @@
+import { sequelize } from '../config/database';
+import User from './User';
+import Student from './Student';
+import Course from './Course';
+import Grade from './Grade';
+import Attendance from './Attendance';
+import Exam from './Exam';
+import Invoice from './Invoice';
+import Expense from './Expense';
+import Campaign from './Campaign';
+import Employee from './Employee';
+import Leave from './Leave';
+import Asset from './Asset';
+import Payroll from './Payroll';
+export { sequelize, User, Student, Course, Grade, Attendance, Exam, Invoice, Expense, Campaign, Employee, Leave, Asset, Payroll, };
+declare const _default: {
+    sequelize: import("sequelize").Sequelize;
+    User: typeof User;
+    Student: typeof Student;
+    Course: typeof Course;
+    Grade: typeof Grade;
+    Attendance: typeof Attendance;
+    Exam: typeof Exam;
+    Invoice: typeof Invoice;
+    Expense: typeof Expense;
+    Campaign: typeof Campaign;
+    Employee: typeof Employee;
+    Leave: typeof Leave;
+    Asset: typeof Asset;
+    Payroll: typeof Payroll;
+};
+export default _default;
+//# sourceMappingURL=index.d.ts.map

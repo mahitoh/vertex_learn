@@ -101,6 +101,24 @@ app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(specs, {
   customSiteTitle: 'Vertex Learn ERP API Documentation',
 }));
 
+// Root endpoint
+app.get('/', (req, res) => {
+  res.status(200).json({
+    message: 'Welcome to Vertex Learn ERP API',
+    version: '1.0.0',
+    description: 'A comprehensive ERP system for educational institutions',
+    endpoints: {
+      documentation: '/api-docs',
+      health: '/health',
+      auth: '/api/auth',
+      academic: '/api/academic',
+      finance: '/api/finance',
+      hr: '/api/hr'
+    },
+    timestamp: new Date().toISOString()
+  });
+});
+
 // Health check endpoint
 app.get('/health', (req, res) => {
   res.status(200).json({

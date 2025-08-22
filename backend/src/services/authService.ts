@@ -1,7 +1,7 @@
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
-import { User } from "../models";
 import { CustomError } from "../middleware/errorHandler";
+import { prisma } from "../config/prisma";
 
 interface LoginCredentials {
   email: string;
@@ -84,7 +84,7 @@ export class AuthService {
   static async register(userData: RegisterData): Promise<AuthResponse> {
     try {
       // Check if user already exists
-      const existingUser = await User.findOne({
+      const existingUser = await prisma.user.findUnique({
         where: { email: userData.email },
       });
 
@@ -96,9 +96,11 @@ export class AuthService {
       const password_hash = await this.hashPassword(userData.password);
 
       // Create user
-      const user = await User.create({
-        ...userData,
-        password_hash,
+      const user = await prisma.user.create({
+        data: {
+          ...userData,
+          password_hash,
+        },
       });
 
       // Generate token
@@ -113,8 +115,8 @@ export class AuthService {
           user_id: user.user_id,
           email: user.email,
           role: user.role,
-          first_name: user.first_name,
-          last_name: user.last_name,
+          first_name: user.first_name ?? undefined,
+          last_name: user.last_name ?? undefined,
         },
         token,
       };
@@ -132,7 +134,7 @@ export class AuthService {
   static async login(credentials: LoginCredentials): Promise<AuthResponse> {
     try {
       // Find user by email
-      const user = await User.findOne({
+      const user = await prisma.user.findUnique({
         where: { email: credentials.email },
       });
 
@@ -156,7 +158,10 @@ export class AuthService {
       }
 
       // Update last login
-      await user.update({ last_login: new Date() });
+      await prisma.user.update({
+        where: { user_id: user.user_id },
+        data: { last_login: new Date() },
+      });
 
       // Generate token
       const token = this.generateToken({
@@ -170,8 +175,8 @@ export class AuthService {
           user_id: user.user_id,
           email: user.email,
           role: user.role,
-          first_name: user.first_name,
-          last_name: user.last_name,
+          first_name: user.first_name ?? undefined,
+          last_name: user.last_name ?? undefined,
         },
         token,
       };
@@ -192,7 +197,9 @@ export class AuthService {
     newPassword: string
   ): Promise<void> {
     try {
-      const user = await User.findByPk(userId);
+      const user = await prisma.user.findUnique({
+        where: { user_id: userId },
+      });
 
       if (!user) {
         throw new CustomError("User not found", 404);
@@ -212,7 +219,10 @@ export class AuthService {
       const newPasswordHash = await this.hashPassword(newPassword);
 
       // Update password
-      await user.update({ password_hash: newPasswordHash });
+      await prisma.user.update({
+        where: { user_id: userId },
+        data: { password_hash: newPasswordHash },
+      });
     } catch (error) {
       if (error instanceof CustomError) {
         throw error;
@@ -229,7 +239,9 @@ export class AuthService {
     newPassword: string
   ): Promise<void> {
     try {
-      const user = await User.findByPk(userId);
+      const user = await prisma.user.findUnique({
+        where: { user_id: userId },
+      });
 
       if (!user) {
         throw new CustomError("User not found", 404);
@@ -239,7 +251,10 @@ export class AuthService {
       const newPasswordHash = await this.hashPassword(newPassword);
 
       // Update password
-      await user.update({ password_hash: newPasswordHash });
+      await prisma.user.update({
+        where: { user_id: userId },
+        data: { password_hash: newPasswordHash },
+      });
     } catch (error) {
       if (error instanceof CustomError) {
         throw error;
@@ -253,13 +268,18 @@ export class AuthService {
    */
   static async deactivateUser(userId: number): Promise<void> {
     try {
-      const user = await User.findByPk(userId);
+      const user = await prisma.user.findUnique({
+        where: { user_id: userId },
+      });
 
       if (!user) {
         throw new CustomError("User not found", 404);
       }
 
-      await user.update({ is_active: false });
+      await prisma.user.update({
+        where: { user_id: userId },
+        data: { is_active: false },
+      });
     } catch (error) {
       throw new CustomError("Account deactivation failed", 500);
     }
@@ -270,13 +290,18 @@ export class AuthService {
    */
   static async activateUser(userId: number): Promise<void> {
     try {
-      const user = await User.findByPk(userId);
+      const user = await prisma.user.findUnique({
+        where: { user_id: userId },
+      });
 
       if (!user) {
         throw new CustomError("User not found", 404);
       }
 
-      await user.update({ is_active: true });
+      await prisma.user.update({
+        where: { user_id: userId },
+        data: { is_active: true },
+      });
     } catch (error) {
       throw new CustomError("Account activation failed", 500);
     }

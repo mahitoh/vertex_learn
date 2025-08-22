@@ -1,5 +1,5 @@
-import { Request, Response, NextFunction } from 'express';
-import { ValidationError } from 'sequelize';
+import { Request, Response, NextFunction } from "express";
+import { Prisma } from "@prisma/client";
 
 export interface AppError extends Error {
   statusCode?: number;
@@ -19,7 +19,10 @@ export class CustomError extends Error implements AppError {
   }
 }
 
-export const createError = (message: string, statusCode: number = 500): CustomError => {
+export const createError = (
+  message: string,
+  statusCode: number = 500
+): CustomError => {
   return new CustomError(message, statusCode);
 };
 
@@ -30,47 +33,52 @@ export const errorHandler = (
   next: NextFunction
 ): void => {
   let statusCode = error.statusCode || 500;
-  let message = error.message || 'Internal Server Error';
+  let message = error.message || "Internal Server Error";
 
-  // Handle Sequelize validation errors
-  if (error instanceof ValidationError) {
+  // Handle Prisma validation errors
+  if (error instanceof Prisma.PrismaClientValidationError) {
     statusCode = 400;
-    message = error.errors.map(err => err.message).join(', ');
+    message = "Invalid input data";
   }
 
   // Handle JWT errors
-  if (error.name === 'JsonWebTokenError') {
+  if (error.name === "JsonWebTokenError") {
     statusCode = 401;
-    message = 'Invalid token';
+    message = "Invalid token";
   }
 
-  if (error.name === 'TokenExpiredError') {
+  if (error.name === "TokenExpiredError") {
     statusCode = 401;
-    message = 'Token expired';
+    message = "Token expired";
   }
 
-  // Handle Sequelize unique constraint errors
-  if (error.name === 'SequelizeUniqueConstraintError') {
-    statusCode = 409;
-    message = 'Resource already exists';
-  }
-
-  // Handle Sequelize foreign key constraint errors
-  if (error.name === 'SequelizeForeignKeyConstraintError') {
-    statusCode = 400;
-    message = 'Invalid reference to related resource';
+  // Handle Prisma unique constraint errors
+  if (error instanceof Prisma.PrismaClientKnownRequestError) {
+    if (error.code === "P2002") {
+      // Unique constraint violation
+      statusCode = 409;
+      message = "Resource already exists";
+    } else if (error.code === "P2003") {
+      // Foreign key constraint violation
+      statusCode = 400;
+      message = "Invalid reference to related resource";
+    } else if (error.code === "P2025") {
+      // Record not found
+      statusCode = 404;
+      message = "Resource not found";
+    }
   }
 
   // Log error in development
-  if (process.env.NODE_ENV === 'development') {
-    console.error('Error:', {
+  if (process.env.NODE_ENV === "development") {
+    console.error("Error:", {
       message: error.message,
       stack: error.stack,
       statusCode,
       url: req.url,
       method: req.method,
       ip: req.ip,
-      userAgent: req.get('User-Agent'),
+      userAgent: req.get("User-Agent"),
     });
   }
 
@@ -79,7 +87,7 @@ export const errorHandler = (
     success: false,
     error: {
       message,
-      ...(process.env.NODE_ENV === 'development' && {
+      ...(process.env.NODE_ENV === "development" && {
         stack: error.stack,
         details: error,
       }),

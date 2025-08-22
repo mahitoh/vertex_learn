@@ -4,26 +4,46 @@ import { useState, useEffect } from "react";
 import heroDashboard from "@/assets/hero-dashboard.jpg";
 import heroClassroom from "@/assets/hero-classroom.jpg";
 import heroAdmin from "@/assets/hero-admin.jpg";
+import heroLiabrary from "@/assets/hero_liabrary.jpg";
+import heroCode from "@/assets/code.jpg";
 
 const slides = [
   {
     image: heroDashboard,
     title: "Complete School Management Solution",
-    subtitle: "Streamline your educational institution with our comprehensive ERP system",
-    description: "Manage students, staff, finances, and operations all in one powerful platform."
+    subtitle:
+      "Streamline your educational institution with our comprehensive ERP system",
+    description:
+      "Manage students, staff, finances, and operations all in one powerful platform.",
   },
   {
     image: heroClassroom,
     title: "Enhance Learning Experience",
     subtitle: "Connect teachers, students, and parents seamlessly",
-    description: "Digital classrooms, assignment tracking, and real-time communication tools."
+    description:
+      "Digital classrooms, assignment tracking, and real-time communication tools.",
   },
   {
     image: heroAdmin,
     title: "Data-Driven Decisions",
     subtitle: "Advanced analytics and reporting for educational excellence",
-    description: "Make informed decisions with comprehensive insights and automated reports."
-  }
+    description:
+      "Make informed decisions with comprehensive insights and automated reports.",
+  },
+  {
+    image: heroCode,
+    title: "Data-Driven Decisionsj",
+    subtitle: "Advanced analytics and reporting for educational excellence",
+    description:
+      "Make informed decisions with comprehensive insights and automated reports.",
+  },
+  {
+    image: heroLiabrary,
+    title: "Data-Driven Decisions",
+    subtitle: "Advanced analytics and reporting for educational excellence",
+    description:
+      "Make informed decisions with comprehensive insights and automated reports.",
+  },
 ];
 
 const HeroSection = () => {
@@ -77,12 +97,19 @@ const HeroSection = () => {
           <p className="text-lg mb-8 text-gray-300 max-w-2xl mx-auto animate-fade-in">
             {slides[currentSlide].description}
           </p>
-          
+
           <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-12">
-            <Button size="lg" className="bg-primary hover:bg-primary-dark text-lg px-8 py-4">
+            <Button
+              size="lg"
+              className="bg-primary hover:bg-primary-dark text-lg px-8 py-4"
+            >
               Start Free Trial
             </Button>
-            <Button size="lg" variant="outline" className="text-white border-white hover:bg-white hover:text-primary text-lg px-8 py-4">
+            <Button
+              size="lg"
+              variant="outline"
+              className="text-white border-white hover:bg-white hover:text-primary text-lg px-8 py-4"
+            >
               <Play className="w-5 h-5 mr-2" />
               Watch Demo
             </Button>

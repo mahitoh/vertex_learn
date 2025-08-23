@@ -7,26 +7,26 @@ const stats = [
     icon: CheckCircle,
     number: "500+",
     label: "Schools Trust Us",
-    description: "Educational institutions worldwide"
+    description: "Educational institutions worldwide",
   },
   {
     icon: TrendingUp,
     number: "40%",
     label: "Efficiency Increase",
-    description: "Average productivity improvement"
+    description: "Average productivity improvement",
   },
   {
     icon: Clock,
     number: "24/7",
     label: "Support Available",
-    description: "Round-the-clock assistance"
+    description: "Round-the-clock assistance",
   },
   {
     icon: Star,
     number: "4.9/5",
     label: "Customer Rating",
-    description: "Based on 1000+ reviews"
-  }
+    description: "Based on 1000+ reviews",
+  },
 ];
 
 const benefits = [
@@ -35,7 +35,7 @@ const benefits = [
   "Streamline fee collection and financial reporting",
   "Enhance student academic tracking",
   "Automate attendance and grading processes",
-  "Generate comprehensive performance analytics"
+  "Generate comprehensive performance analytics",
 ];
 
 const StatsSection = () => {
@@ -43,32 +43,38 @@ const StatsSection = () => {
     <section id="benefits" className="py-20 bg-background">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
         {/* Stats Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 mb-20">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 md:gap-8 mb-16 md:mb-20">
           {stats.map((stat, index) => (
             <Card key={index} className="text-center border-0 shadow-card">
               <CardContent className="pt-8 pb-6">
                 <div className="mx-auto mb-4 p-3 bg-accent/10 rounded-full w-16 h-16 flex items-center justify-center">
                   <stat.icon className="w-8 h-8 text-accent" />
                 </div>
-                <div className="text-4xl font-bold text-primary mb-2">{stat.number}</div>
-                <div className="text-lg font-semibold text-foreground mb-1">{stat.label}</div>
-                <div className="text-sm text-muted-foreground">{stat.description}</div>
+                <div className="text-4xl font-bold text-primary mb-2">
+                  {stat.number}
+                </div>
+                <div className="text-lg font-semibold text-foreground mb-1">
+                  {stat.label}
+                </div>
+                <div className="text-sm text-muted-foreground">
+                  {stat.description}
+                </div>
               </CardContent>
             </Card>
           ))}
         </div>
 
         {/* Benefits Section */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 md:gap-16 items-center">
           <div>
             <h2 className="text-4xl md:text-5xl font-bold text-foreground mb-6">
               Transform Your School Operations
             </h2>
             <p className="text-xl text-muted-foreground mb-8">
-              Join hundreds of educational institutions that have revolutionized 
+              Join hundreds of educational institutions that have revolutionized
               their management processes with our comprehensive ERP solution.
             </p>
-            
+
             <ul className="space-y-4 mb-8">
               {benefits.map((benefit, index) => (
                 <li key={index} className="flex items-start space-x-3">
@@ -79,10 +85,13 @@ const StatsSection = () => {
             </ul>
 
             <div className="flex flex-col sm:flex-row gap-4">
-              <Button size="lg" className="bg-primary hover:bg-primary-dark">
+              <Button
+                size="lg"
+                className="bg-primary hover:bg-primary-dark w-full sm:w-auto"
+              >
                 Schedule Demo
               </Button>
-              <Button size="lg" variant="outline">
+              <Button size="lg" variant="outline" className="w-full sm:w-auto">
                 View Case Studies
               </Button>
             </div>

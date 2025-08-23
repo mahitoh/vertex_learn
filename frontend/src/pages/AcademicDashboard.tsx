@@ -1,7 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
-import { useState } from "react";
 import Header from "@/components/dashboard/Header";
-import RoleBasedSidebar from "@/components/dashboard/RoleBasedSidebar";
+import SlidingSidebar from "@/components/dashboard/SlidingSidebar";
 import StatsCard from "@/components/dashboard/StatsCard";
 import AcademicCalendar from "@/components/dashboard/AcademicCalendar";
 import ActionButtons from "@/components/dashboard/ActionButtons";
@@ -10,6 +9,7 @@ import GradeManagement from "@/components/teacher/GradeManagement";
 import ExamCalendar from "@/components/teacher/ExamCalendar";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useUser } from "@/contexts/UserContext";
+import { useSidebar } from "@/contexts/SidebarContext";
 import type { DashboardStats, CalendarEvent, GradeDistribution } from "@/types/dashboard";
 import { 
   GraduationCap, 
@@ -23,9 +23,15 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import RoleSwitcher from "@/components/RoleSwitcher";
 
 export default function AcademicDashboard() {
-  const [sidebarOpen, setSidebarOpen] = useState(false);
   const isMobile = useIsMobile();
   const { user, isStudent, isTeacher, isLoading: userLoading } = useUser();
+  const {
+    sidebarOpen,
+    sidebarCollapsed,
+    setSidebarOpen,
+    toggleSidebar,
+    toggleCollapse,
+  } = useSidebar();
 
   const { data: stats, isLoading: statsLoading } = useQuery<DashboardStats>({
     queryKey: ["/api/dashboard/stats"],
@@ -148,29 +154,38 @@ export default function AcademicDashboard() {
     }]
   };
 
+  // Calculate main content margin based on sidebar state
+  const getMainMargin = () => {
+    if (isMobile) return '';
+    return sidebarCollapsed ? 'ml-16' : 'ml-64';
+  };
+
   return (
     <div className="min-h-screen bg-content-bg">
       <Header 
-        onMenuToggle={() => setSidebarOpen(!sidebarOpen)} 
+        onMenuToggle={toggleSidebar}
         isMobile={isMobile}
+        isCollapsed={sidebarCollapsed}
+        onToggleCollapse={toggleCollapse}
+        sidebarWidth={sidebarCollapsed ? 64 : 256}
       />
       
       <div className="flex pt-16">
-        <RoleBasedSidebar 
+        <SlidingSidebar 
           isOpen={sidebarOpen}
           onClose={() => setSidebarOpen(false)}
           isMobile={isMobile}
+          isCollapsed={sidebarCollapsed}
+          onToggleCollapse={toggleCollapse}
         />
         
-        <main className={`flex-1 p-4 sm:p-6 transition-all duration-300 ${
-          isMobile ? '' : 'ml-64'
-        }`}>
+        <main className={`flex-1 p-3 sm:p-4 lg:p-6 transition-all duration-300 ${getMainMargin()}`}>
           {/* Welcome Section */}
-          <div className="mb-6">
-            <h1 className="text-3xl font-bold text-text-primary">
+          <div className="mb-4 sm:mb-6">
+            <h1 className="text-2xl sm:text-3xl font-bold text-text-primary mb-2">
               Welcome back, {user.name}!
             </h1>
-            <p className="text-text-secondary">
+            <p className="text-sm sm:text-base text-text-secondary">
               {isStudent ? "Track your academic progress and stay updated with your courses." :
                isTeacher ? "Manage your classes, track student progress, and schedule exams." :
                "Manage the academic system and monitor overall performance."}
@@ -178,7 +193,7 @@ export default function AcademicDashboard() {
           </div>
 
           {/* Stats Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-6 sm:mb-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4 lg:gap-6 mb-4 sm:mb-6 lg:mb-8">
             {statsCards.map((stat, index) => (
               <StatsCard
                 key={index}
@@ -194,9 +209,9 @@ export default function AcademicDashboard() {
 
           {/* Role-specific Dashboard Layout */}
           {isStudent ? (
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
+            <div className="grid grid-cols-1 xl:grid-cols-3 gap-4 sm:gap-6">
               {/* Student Academic Calendar */}
-              <div className="lg:col-span-2">
+              <div className="xl:col-span-2 order-2 xl:order-1">
                 <AcademicCalendar 
                   events={events || []}
                   isLoading={eventsLoading}
@@ -204,7 +219,7 @@ export default function AcademicDashboard() {
               </div>
 
               {/* Right Side - Charts and Quick Actions */}
-              <div className="space-y-6">
+              <div className="space-y-4 sm:space-y-6 order-1 xl:order-2">
                 <ActionButtons />
                 
                 {/* Personal Grade Chart */}
@@ -218,24 +233,24 @@ export default function AcademicDashboard() {
                 
                 {/* Attendance Summary */}
                 <Card>
-                  <CardHeader>
-                    <CardTitle>Attendance Summary</CardTitle>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-lg">Attendance Summary</CardTitle>
                   </CardHeader>
-                  <CardContent>
+                  <CardContent className="pt-0">
                     <div className="space-y-3">
-                      <div className="flex justify-between items-center">
-                        <span>Mathematics</span>
+                      <div className="flex justify-between items-center text-sm">
+                        <span className="truncate mr-2">Mathematics</span>
                         <span className="font-medium">95%</span>
                       </div>
-                      <div className="flex justify-between items-center">
-                        <span>Physics</span>
+                      <div className="flex justify-between items-center text-sm">
+                        <span className="truncate mr-2">Physics</span>
                         <span className="font-medium">88%</span>
                       </div>
-                      <div className="flex justify-between items-center">
-                        <span>Chemistry</span>
+                      <div className="flex justify-between items-center text-sm">
+                        <span className="truncate mr-2">Chemistry</span>
                         <span className="font-medium">92%</span>
                       </div>
-                      <div className="border-t pt-3 flex justify-between items-center font-semibold">
+                      <div className="border-t pt-3 flex justify-between items-center font-semibold text-sm">
                         <span>Overall</span>
                         <span className="text-green-600">92%</span>
                       </div>
@@ -245,9 +260,9 @@ export default function AcademicDashboard() {
               </div>
             </div>
           ) : isTeacher ? (
-            <div className="space-y-6">
+            <div className="space-y-4 sm:space-y-6">
               {/* Teacher Dashboard Layout */}
-              <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 sm:gap-6">
                 {/* Grade Management */}
                 <GradeManagement isLoading={statsLoading} />
                 
@@ -266,31 +281,31 @@ export default function AcademicDashboard() {
               
               {/* Recent Activity */}
               <Card>
-                <CardHeader>
-                  <CardTitle>Recent Activity</CardTitle>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-lg">Recent Activity</CardTitle>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="pt-0">
                   <div className="space-y-3">
-                    <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
-                      <div>
-                        <p className="font-medium">Grade 12-A Mathematics Quiz</p>
-                        <p className="text-sm text-gray-600">15 students submitted</p>
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-3 bg-blue-50 rounded-lg gap-2">
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-sm truncate">Grade 12-A Mathematics Quiz</p>
+                        <p className="text-xs text-gray-600">15 students submitted</p>
                       </div>
-                      <span className="text-sm text-blue-600">2 hours ago</span>
+                      <span className="text-xs sm:text-sm text-blue-600 flex-shrink-0">2 hours ago</span>
                     </div>
-                    <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
-                      <div>
-                        <p className="font-medium">Physics Lab Report</p>
-                        <p className="text-sm text-gray-600">Graded 20 submissions</p>
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-3 bg-green-50 rounded-lg gap-2">
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-sm truncate">Physics Lab Report</p>
+                        <p className="text-xs text-gray-600">Graded 20 submissions</p>
                       </div>
-                      <span className="text-sm text-green-600">1 day ago</span>
+                      <span className="text-xs sm:text-sm text-green-600 flex-shrink-0">1 day ago</span>
                     </div>
-                    <div className="flex items-center justify-between p-3 bg-yellow-50 rounded-lg">
-                      <div>
-                        <p className="font-medium">Chemistry Midterm</p>
-                        <p className="text-sm text-gray-600">Scheduled for next week</p>
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-3 bg-yellow-50 rounded-lg gap-2">
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-sm truncate">Chemistry Midterm</p>
+                        <p className="text-xs text-gray-600">Scheduled for next week</p>
                       </div>
-                      <span className="text-sm text-yellow-600">Upcoming</span>
+                      <span className="text-xs sm:text-sm text-yellow-600 flex-shrink-0">Upcoming</span>
                     </div>
                   </div>
                 </CardContent>
@@ -299,15 +314,6 @@ export default function AcademicDashboard() {
           ) : null}
         </main>
       </div>
-
-      {/* Mobile Overlay */}
-      {isMobile && sidebarOpen && (
-        <div 
-          className="fixed inset-0 bg-black bg-opacity-50 z-30 lg:hidden"
-          onClick={() => setSidebarOpen(false)}
-          data-testid="sidebar-overlay"
-        />
-      )}
       
       {/* Role Switcher for Demo */}
       <RoleSwitcher />

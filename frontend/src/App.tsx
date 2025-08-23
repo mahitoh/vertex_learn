@@ -1,40 +1,10 @@
-// import { Toaster } from "@/components/ui/toaster";
-// import { Toaster as Sonner } from "@/components/ui/sonner";
-// import { TooltipProvider } from "@/components/ui/tooltip";
-// import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-// import { BrowserRouter, Routes, Route } from "react-router-dom";
-// import Index from "./pages/Index";
-// import Login from "./pages/Login";
-// import Register from "./pages/Register";
-// import NotFound from "./pages/NotFound";
-
-// const queryClient = new QueryClient();
-
-// const App = () => (
-//   <QueryClientProvider client={queryClient}>
-//     <TooltipProvider>
-//       <Toaster />
-//       <Sonner />
-//       <BrowserRouter>
-//         <Routes>
-//           <Route path="/" element={<Index />} />
-//           <Route path="/login" element={<Login />} />
-//           <Route path="/register" element={<Register />} />
-//           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-//           <Route path="*" element={<NotFound />} />
-//         </Routes>
-//       </BrowserRouter>
-//     </TooltipProvider>
-//   </QueryClientProvider>
-// );
-
-// export default App;
-import { Switch, Route } from "wouter";
-import { queryClient } from "./lib/queryClient";
-import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
+import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { UserProvider } from "@/contexts/UserContext";
+import { SidebarProvider } from "@/contexts/SidebarContext";
 import { ToastProvider } from "@/components/notifications/ToastProvider";
 import AcademicDashboard from "@/pages/AcademicDashboard";
 import Courses from "@/pages/courses";
@@ -48,37 +18,38 @@ import TeacherGrades from "@/pages/teacher/TeacherGrades";
 import TeacherExams from "@/pages/teacher/TeacherExams";
 import NotFound from "@/pages/not-found";
 
-function Router() {
-  return (
-    <Switch>
-      <Route path="/" component={AcademicDashboard} />
-      <Route path="/courses" component={Courses} />
-      <Route path="/schedule" component={Schedule} />
-      <Route path="/attendance" component={Attendance} />
-      <Route path="/grades" component={Grades} />
-      <Route path="/timetable" component={Timetable} />
-      <Route path="/profile" component={Profile} />
-      <Route path="/settings" component={Settings} />
-      <Route path="/teacher/grades" component={TeacherGrades} />
-      <Route path="/teacher/exams" component={TeacherExams} />
-      <Route component={NotFound} />
-    </Switch>
-  );
-}
+const queryClient = new QueryClient();
 
-function App() {
-  return (
-    <QueryClientProvider client={queryClient}>
-      <UserProvider>
+const App = () => (
+  <QueryClientProvider client={queryClient}>
+    <UserProvider>
+      <SidebarProvider>
         <ToastProvider>
           <TooltipProvider>
-            <Router />
             <Toaster />
+            <Sonner />
+            <BrowserRouter>
+              <Routes>
+                <Route path="/" element={<AcademicDashboard />} />
+                <Route path="/dashboard" element={<AcademicDashboard />} />
+                <Route path="/courses" element={<Courses />} />
+                <Route path="/schedule" element={<Schedule />} />
+                <Route path="/attendance" element={<Attendance />} />
+                <Route path="/grades" element={<Grades />} />
+                <Route path="/timetable" element={<Timetable />} />
+                <Route path="/profile" element={<Profile />} />
+                <Route path="/settings" element={<Settings />} />
+                <Route path="/teacher/grades" element={<TeacherGrades />} />
+                <Route path="/teacher/exams" element={<TeacherExams />} />
+                {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+            </BrowserRouter>
           </TooltipProvider>
         </ToastProvider>
-      </UserProvider>
-    </QueryClientProvider>
-  );
-}
+      </SidebarProvider>
+    </UserProvider>
+  </QueryClientProvider>
+);
 
 export default App;

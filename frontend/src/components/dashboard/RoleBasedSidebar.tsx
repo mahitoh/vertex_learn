@@ -13,7 +13,7 @@ import {
   PlusCircle,
   Edit
 } from "lucide-react";
-import { Link, useLocation } from "wouter";
+import { Link, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { useUser } from "@/contexts/UserContext";
 
@@ -33,7 +33,7 @@ interface SidebarProps {
 
 const menuItems: MenuItem[] = [
   // Dashboard - Available to all
-  { label: "Dashboard", icon: BarChart3, path: "/", testId: "nav-dashboard", roles: ['student', 'teacher', 'admin'] },
+  { label: "Dashboard", icon: BarChart3, path: "/dashboard", testId: "nav-dashboard", roles: ['student', 'teacher', 'admin'] },
   
   // Student-specific items
   { label: "My Courses", icon: BookOpen, path: "/courses", testId: "nav-courses", roles: ['student'] },
@@ -55,7 +55,7 @@ const menuItems: MenuItem[] = [
 ];
 
 export default function RoleBasedSidebar({ isOpen, onClose, isMobile }: SidebarProps) {
-  const [location] = useLocation();
+  const location = useLocation();
   const { user, isStudent, isTeacher } = useUser();
 
   if (!user) {
@@ -106,7 +106,7 @@ export default function RoleBasedSidebar({ isOpen, onClose, isMobile }: SidebarP
           {/* Navigation Items */}
           <ul className="space-y-1">
             {filteredMenuItems.map((item, index) => {
-              const isActive = location === item.path;
+              const isActive = location.pathname === item.path;
               return (
                 <li key={index}>
                   <Link

@@ -9,7 +9,8 @@ interface AcademicCalendarProps {
   isLoading?: boolean;
 }
 
-const DAYS_OF_WEEK = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+const DAYS_OF_WEEK = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const DAYS_OF_WEEK_FULL = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 const MONTHS = [
   'January', 'February', 'March', 'April', 'May', 'June',
   'July', 'August', 'September', 'October', 'November', 'December'
@@ -84,9 +85,9 @@ export default function AcademicCalendar({ events, isLoading = false }: Academic
 
   if (isLoading) {
     return (
-      <div className="bg-card-bg rounded-xl p-6 shadow-sm border border-gray-100">
-        <Skeleton className="h-6 w-40 mb-6" />
-        <Skeleton className="h-64 w-full" />
+      <div className="bg-card-bg rounded-xl p-4 sm:p-6 shadow-sm border border-gray-100">
+        <Skeleton className="h-6 w-40 mb-4 sm:mb-6" />
+        <Skeleton className="h-48 sm:h-64 w-full" />
       </div>
     );
   }
@@ -94,9 +95,9 @@ export default function AcademicCalendar({ events, isLoading = false }: Academic
   const days = getDaysInMonth(currentDate);
 
   return (
-    <div className="bg-card-bg rounded-xl p-6 shadow-sm border border-gray-100">
-      <div className="flex items-center justify-between mb-6">
-        <h2 className="text-xl font-semibold text-text-primary">Academic Calendar</h2>
+    <div className="bg-card-bg rounded-xl p-4 sm:p-6 shadow-sm border border-gray-100">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 sm:mb-6 gap-3">
+        <h2 className="text-lg sm:text-xl font-semibold text-text-primary">Academic Calendar</h2>
         <div className="flex items-center space-x-2">
           <Button 
             variant="ghost" 
@@ -125,15 +126,15 @@ export default function AcademicCalendar({ events, isLoading = false }: Academic
       </div>
 
       {/* Calendar Header */}
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center space-x-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 gap-3">
+        <div className="flex items-center space-x-2 sm:space-x-4">
           <div className="flex bg-gray-100 rounded-lg p-1">
             {(['Month', 'Week', 'Day'] as const).map((mode) => (
               <Button
                 key={mode}
                 variant="ghost"
                 size="sm"
-                className={`px-4 py-2 text-sm font-medium ${
+                className={`px-2 sm:px-4 py-2 text-xs sm:text-sm font-medium ${
                   viewMode === mode
                     ? 'bg-primary text-white'
                     : 'text-text-secondary hover:bg-gray-200'
@@ -146,7 +147,7 @@ export default function AcademicCalendar({ events, isLoading = false }: Academic
             ))}
           </div>
         </div>
-        <div className="flex items-center space-x-4">
+        <div className="flex items-center justify-between sm:justify-end space-x-2 sm:space-x-4">
           <Button
             variant="ghost"
             size="sm"
@@ -156,7 +157,7 @@ export default function AcademicCalendar({ events, isLoading = false }: Academic
           >
             <ChevronLeft className="h-4 w-4" />
           </Button>
-          <h3 className="text-lg font-semibold text-text-primary">
+          <h3 className="text-sm sm:text-lg font-semibold text-text-primary whitespace-nowrap">
             {MONTHS[currentDate.getMonth()]}, {currentDate.getFullYear()}
           </h3>
           <Button
@@ -171,7 +172,7 @@ export default function AcademicCalendar({ events, isLoading = false }: Academic
           <Button
             variant="outline"
             size="sm"
-            className="px-4 py-2 border border-gray-300 text-sm text-text-secondary hover:bg-gray-50"
+            className="px-2 sm:px-4 py-2 border border-gray-300 text-xs sm:text-sm text-text-secondary hover:bg-gray-50"
             onClick={goToToday}
             data-testid="button-today"
           >
@@ -183,9 +184,10 @@ export default function AcademicCalendar({ events, isLoading = false }: Academic
       {/* Calendar Grid */}
       <div className="grid grid-cols-7 gap-px bg-gray-200 rounded-lg overflow-hidden">
         {/* Days of Week Header */}
-        {DAYS_OF_WEEK.map((day) => (
-          <div key={day} className="bg-card-bg p-3 text-center text-sm font-medium text-text-secondary">
-            {day}
+        {DAYS_OF_WEEK.map((day, index) => (
+          <div key={day} className="bg-card-bg p-2 sm:p-3 text-center text-xs sm:text-sm font-medium text-text-secondary">
+            <span className="hidden sm:inline">{DAYS_OF_WEEK_FULL[index]}</span>
+            <span className="sm:hidden">{day}</span>
           </div>
         ))}
 
@@ -195,19 +197,19 @@ export default function AcademicCalendar({ events, isLoading = false }: Academic
           return (
             <div 
               key={index} 
-              className={`bg-card-bg p-3 h-16 relative ${
+              className={`bg-card-bg p-1 sm:p-3 h-12 sm:h-16 relative ${
                 !dayData.isCurrentMonth ? 'bg-gray-50' : ''
               }`}
               data-testid={`calendar-day-${dayData.day}`}
             >
-              <span className={`text-sm font-medium ${
+              <span className={`text-xs sm:text-sm font-medium ${
                 dayData.isCurrentMonth ? 'text-text-primary' : 'text-gray-400'
               }`}>
                 {dayData.day}
               </span>
               {event && (
                 <div 
-                  className={`absolute bottom-1 left-1 right-1 h-2 rounded text-xs text-center ${
+                  className={`absolute bottom-0.5 sm:bottom-1 left-0.5 sm:left-1 right-0.5 sm:right-1 h-1 sm:h-2 rounded text-xs text-center overflow-hidden ${
                     event.type === 'holiday' 
                       ? 'bg-green-200 text-green-800' 
                       : 'bg-blue-200 text-blue-800'
@@ -215,7 +217,7 @@ export default function AcademicCalendar({ events, isLoading = false }: Academic
                   title={event.title}
                   data-testid={`event-${event.id}`}
                 >
-                  <span className="text-xs">{event.title}</span>
+                  <span className="text-xs hidden sm:inline truncate">{event.title}</span>
                 </div>
               )}
             </div>

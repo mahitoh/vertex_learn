@@ -8,7 +8,7 @@ import {
   Settings,
   User
 } from "lucide-react";
-import { Link, useLocation } from "wouter";
+import { Link, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
 
 interface MenuItem {
@@ -25,7 +25,7 @@ interface SidebarProps {
 }
 
 const menuItems: MenuItem[] = [
-  { label: "Dashboard", icon: BarChart3, path: "/", testId: "nav-dashboard" },
+  { label: "Dashboard", icon: BarChart3, path: "/dashboard", testId: "nav-dashboard" },
   { label: "My Courses", icon: BookOpen, path: "/courses", testId: "nav-courses" },
   { label: "My Schedule", icon: Calendar, path: "/schedule", testId: "nav-schedule" },
   { label: "My Attendance", icon: UserCheck, path: "/attendance", testId: "nav-attendance" },
@@ -36,7 +36,7 @@ const menuItems: MenuItem[] = [
 ];
 
 export default function Sidebar({ isOpen, onClose, isMobile }: SidebarProps) {
-  const [location] = useLocation();
+  const location = useLocation();
 
   return (
     <aside 
@@ -61,7 +61,7 @@ export default function Sidebar({ isOpen, onClose, isMobile }: SidebarProps) {
           {/* Student Navigation Items */}
           <ul className="space-y-1">
             {menuItems.map((item, index) => {
-              const isActive = location === item.path;
+              const isActive = location.pathname === item.path;
               return (
                 <li key={index}>
                   <Link

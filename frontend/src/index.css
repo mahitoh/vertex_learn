@@ -201,4 +201,8 @@ All colors MUST be HSL.
   .hover\:bg-pink-600:hover {
     background-color: #D81B60;
   }
+  
+  .bg-primary-dark {
+    background-color: var(--primary-dark);
+  }
 }

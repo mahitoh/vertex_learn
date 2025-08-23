@@ -1,16 +1,27 @@
-import { Bell, HelpCircle, Menu } from "lucide-react";
+import { Bell, HelpCircle, Menu, PanelLeftClose, PanelLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 interface HeaderProps {
   onMenuToggle: () => void;
   isMobile: boolean;
+  isCollapsed?: boolean;
+  onToggleCollapse?: () => void;
+  sidebarWidth?: number;
 }
 
-export default function Header({ onMenuToggle, isMobile }: HeaderProps) {
+export default function Header({ 
+  onMenuToggle, 
+  isMobile, 
+  isCollapsed = false, 
+  onToggleCollapse,
+  sidebarWidth = 256
+}: HeaderProps) {
+  const leftMargin = isMobile ? 0 : (isCollapsed ? 64 : sidebarWidth);
+
   return (
     <header className="bg-white border-b border-gray-200 h-16 fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-4 sm:px-6">
       <div className="flex items-center space-x-2 sm:space-x-4">
-        {isMobile && (
+        {isMobile ? (
           <Button
             variant="ghost"
             size="sm"
@@ -20,9 +31,22 @@ export default function Header({ onMenuToggle, isMobile }: HeaderProps) {
           >
             <Menu className="h-5 w-5" />
           </Button>
-        )}
-        {!isMobile && (
-          <div className="flex items-center space-x-2 ml-64">
+        ) : (
+          <div 
+            className="flex items-center space-x-2 transition-all duration-300"
+            style={{ marginLeft: `${leftMargin}px` }}
+          >
+            {onToggleCollapse && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={onToggleCollapse}
+                className="text-gray-600 hover:text-gray-800 hover:bg-gray-100 p-2 mr-2"
+                data-testid="button-toggle-sidebar"
+              >
+                {isCollapsed ? <PanelLeft className="h-5 w-5" /> : <PanelLeftClose className="h-5 w-5" />}
+              </Button>
+            )}
             <span className="text-gray-400 text-sm">📋</span>
             <span className="text-gray-400 text-sm">📱</span>
             <span className="text-gray-400 text-sm">💻</span>

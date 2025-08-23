@@ -1,48 +1,39 @@
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight, Play } from "lucide-react";
 import { useState, useEffect } from "react";
-import heroDashboard from "@/assets/hero-dashboard.jpg";
-import heroClassroom from "@/assets/hero-classroom.jpg";
-import heroAdmin from "@/assets/hero-admin.jpg";
 import heroLiabrary from "@/assets/hero_liabrary.jpg";
 import heroCode from "@/assets/code.jpg";
+import heroSchool1 from "@/assets/school1.jpg";
+import heroSchool2 from "@/assets/school2.jpg";
 
 const slides = [
   {
-    image: heroDashboard,
-    title: "Complete School Management Solution",
-    subtitle:
-      "Streamline your educational institution with our comprehensive ERP system",
-    description:
-      "Manage students, staff, finances, and operations all in one powerful platform.",
-  },
-  {
-    image: heroClassroom,
-    title: "Enhance Learning Experience",
-    subtitle: "Connect teachers, students, and parents seamlessly",
-    description:
-      "Digital classrooms, assignment tracking, and real-time communication tools.",
-  },
-  {
-    image: heroAdmin,
-    title: "Data-Driven Decisions",
-    subtitle: "Advanced analytics and reporting for educational excellence",
-    description:
-      "Make informed decisions with comprehensive insights and automated reports.",
-  },
-  {
     image: heroCode,
-    title: "Data-Driven Decisionsj",
-    subtitle: "Advanced analytics and reporting for educational excellence",
+    title: "Comprehensive HR Solutions",
+    subtitle: "Enhance staff and resource management",
     description:
-      "Make informed decisions with comprehensive insights and automated reports.",
+      "Automate payroll, manage employee records, and streamline leave requests with integrated HR tools.",
   },
   {
     image: heroLiabrary,
-    title: "Data-Driven Decisions",
-    subtitle: "Advanced analytics and reporting for educational excellence",
+    title: "Streamlined Academic Management",
+    subtitle: "Optimize course planning and student performance",
     description:
-      "Make informed decisions with comprehensive insights and automated reports.",
+      "Effortlessly manage schedules, grades, and attendance with real-time updates for educators and students.",
+  },
+  {
+    image: heroSchool1,
+    title: "Efficient Financial Oversight",
+    subtitle: "Simplify budgeting and fee collection",
+    description:
+      "Track expenses, generate invoices, and analyze financial trends to ensure fiscal health for your institution.",
+  },
+  {
+    image: heroSchool2,
+    title: "Powerful Analytics Dashboard",
+    subtitle: "Unlock data-driven insights",
+    description:
+      "Access detailed reports and visualizations to monitor performance and drive strategic decisions across all departments.",
   },
 ];
 
@@ -88,40 +79,40 @@ const HeroSection = () => {
       {/* Content */}
       <div className="relative z-10 container mx-auto px-4 sm:px-6 lg:px-8 text-center text-white">
         <div className="max-w-4xl mx-auto">
-          <h1 className="text-5xl md:text-7xl font-bold mb-6 animate-fade-in">
+          <h1 className="text-4xl sm:text-5xl md:text-7xl font-bold mb-4 sm:mb-6 animate-fade-in">
             {slides[currentSlide].title}
           </h1>
-          <p className="text-xl md:text-2xl mb-4 text-gray-200 animate-fade-in">
+          <p className="text-lg sm:text-xl md:text-2xl mb-3 sm:mb-4 text-gray-200 animate-fade-in">
             {slides[currentSlide].subtitle}
           </p>
-          <p className="text-lg mb-8 text-gray-300 max-w-2xl mx-auto animate-fade-in">
+          <p className="text-base sm:text-lg mb-6 sm:mb-8 text-gray-300 max-w-2xl mx-auto animate-fade-in">
             {slides[currentSlide].description}
           </p>
 
-          <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-12">
+          <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center items-center mb-16 sm:mb-20 mt-6 sm:mt-8">
             <Button
-              size="lg"
-              className="bg-primary hover:bg-primary-dark text-lg px-8 py-4"
+              size="default"
+              className="bg-primary hover:bg-primary-dark text-sm sm:text-base px-4 sm:px-6 py-2 w-full sm:w-auto order-2 sm:order-1"
             >
               Start Free Trial
             </Button>
             <Button
-              size="lg"
+              size="default"
               variant="outline"
-              className="text-white border-white hover:bg-white hover:text-primary text-lg px-8 py-4"
+              className="text-white border-white hover:bg-white hover:text-primary text-sm sm:text-base px-4 sm:px-6 py-2 w-full sm:w-auto order-1 sm:order-2"
             >
-              <Play className="w-5 h-5 mr-2" />
+              <Play className="w-3 h-3 sm:w-4 sm:h-4 mr-2" />
               Watch Demo
             </Button>
           </div>
 
           {/* Slide Indicators */}
-          <div className="flex justify-center space-x-2 mb-8">
+          <div className="flex justify-center space-x-2 mb-6 sm:mb-8">
             {slides.map((_, index) => (
               <button
                 key={index}
                 onClick={() => setCurrentSlide(index)}
-                className={`w-3 h-3 rounded-full transition-all ${
+                className={`w-2 h-2 sm:w-3 sm:h-3 rounded-full transition-all ${
                   index === currentSlide ? "bg-white" : "bg-white/50"
                 }`}
               />
@@ -133,15 +124,15 @@ const HeroSection = () => {
       {/* Navigation Arrows */}
       <button
         onClick={prevSlide}
-        className="absolute left-4 top-1/2 transform -translate-y-1/2 z-20 p-2 rounded-full bg-black/20 text-white hover:bg-black/40 transition-colors"
+        className="absolute left-2 sm:left-4 top-1/2 transform -translate-y-1/2 z-20 p-1.5 sm:p-2 rounded-full bg-black/20 text-white hover:bg-black/40 transition-colors"
       >
-        <ChevronLeft className="w-6 h-6" />
+        <ChevronLeft className="w-4 h-4 sm:w-6 sm:h-6" />
       </button>
       <button
         onClick={nextSlide}
-        className="absolute right-4 top-1/2 transform -translate-y-1/2 z-20 p-2 rounded-full bg-black/20 text-white hover:bg-black/40 transition-colors"
+        className="absolute right-2 sm:right-4 top-1/2 transform -translate-y-1/2 z-20 p-1.5 sm:p-2 rounded-full bg-black/20 text-white hover:bg-black/40 transition-colors"
       >
-        <ChevronRight className="w-6 h-6" />
+        <ChevronRight className="w-4 h-4 sm:w-6 sm:h-6" />
       </button>
     </section>
   );

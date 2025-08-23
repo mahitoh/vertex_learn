@@ -1,3 +1,4 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -66,6 +67,22 @@ All colors MUST be HSL.
     --sidebar-border: 220 13% 91%;
 
     --sidebar-ring: 217.2 91.2% 59.8%;
+
+    /* Academic module specific variables from client */
+    --font-sans: 'Inter', 'Open Sans', sans-serif;
+    --font-serif: Georgia, serif;
+    --font-mono: Menlo, monospace;
+    --spacing: 0.25rem;
+
+    /* Custom dashboard colors for academic module */
+    --sidebar-bg: hsl(218, 23%, 18%);
+    --sidebar-hover: hsl(215, 16%, 25%);
+    --content-bg: hsl(210, 17%, 98%);
+    --card-bg: hsl(0, 0%, 100%);
+    --text-primary: hsl(218, 23%, 23%);
+    --text-secondary: hsl(215, 13%, 46%);
+    --accent-blue: hsl(208, 76%, 39%);
+    --primary-dark: hsl(326, 73%, 40%);
   }
 
   .dark {
@@ -104,6 +121,15 @@ All colors MUST be HSL.
     --sidebar-accent-foreground: 240 4.8% 95.9%;
     --sidebar-border: 240 3.7% 15.9%;
     --sidebar-ring: 217.2 91.2% 59.8%;
+
+    /* Academic module dark mode colors */
+    --sidebar-bg: hsl(218, 23%, 15%);
+    --sidebar-hover: hsl(215, 16%, 25%);
+    --content-bg: hsl(210, 17%, 8%);
+    --card-bg: hsl(228, 9.8039%, 10%);
+    --text-primary: hsl(200, 6.6667%, 91.1765%);
+    --text-secondary: hsl(210, 3.3898%, 56.2745%);
+    --accent-blue: hsl(208, 76%, 59%);
   }
 }
 
@@ -113,7 +139,9 @@ All colors MUST be HSL.
   }
 
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground font-sans antialiased;
+    background-color: var(--content-bg);
+    color: var(--text-primary);
   }
 }
 
@@ -131,5 +159,46 @@ All colors MUST be HSL.
       opacity: 1;
       transform: translateY(0);
     }
+  }
+
+  /* Academic module utility classes */
+  .bg-primary {
+    background-color: #E91E63;
+  }
+  
+  .bg-sidebar {
+    background-color: var(--sidebar-bg);
+  }
+  
+  .bg-sidebar-hover {
+    background-color: var(--sidebar-hover);
+  }
+  
+  .bg-content-bg {
+    background-color: var(--content-bg);
+  }
+  
+  .bg-card-bg {
+    background-color: var(--card-bg);
+  }
+  
+  .text-primary {
+    color: #E91E63;
+  }
+  
+  .text-text-primary {
+    color: var(--text-primary);
+  }
+  
+  .text-text-secondary {
+    color: var(--text-secondary);
+  }
+  
+  .text-accent-blue {
+    color: var(--accent-blue);
+  }
+  
+  .hover\:bg-pink-600:hover {
+    background-color: #D81B60;
   }
 }

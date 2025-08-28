@@ -3,21 +3,12 @@ import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Eye, EyeOff, GraduationCap, ArrowLeft } from "lucide-react";
-import axios from "axios";
 
 const Register = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
   const [formData, setFormData] = useState({
     firstName: "",
     lastName: "",
@@ -25,7 +16,6 @@ const Register = () => {
     organization: "",
     password: "",
     confirmPassword: "",
-    role: "staff",
     terms: false,
   });
 
@@ -37,60 +27,18 @@ const Register = () => {
     });
   };
 
-  const validateEmail = (email: string) => {
-    return /^[\w+.-]+@([\w-]+\.)+[\w-]{2,4}$/.test(email);
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    setError("");
-
-    if (formData.password !== formData.confirmPassword) {
-      setError("Passwords do not match");
-      return;
-    }
-
-    if (!validateEmail(formData.email)) {
-      setError("Invalid email format");
-      return;
-    }
-
-    try {
-      setLoading(true);
-      const baseUrl = import.meta.env.VITE_API_URL || "http://localhost:3000";
-      const response = await axios.post(
-        `${baseUrl}/api/auth/register`,
-        {
-          email: formData.email,
-          password: formData.password,
-          first_name: formData.firstName,
-          last_name: formData.lastName,
-          role: "staff",
-        },
-        { withCredentials: true }
-      );
-
-      if (response.status === 201) {
-        const token = response.data?.data?.token as string | undefined;
-        if (token) localStorage.setItem('token', token);
-        window.location.href = "/login";
-      }
-    } catch (err: any) {
-      const apiError = err?.response?.data?.error;
-      const details = apiError?.details as Array<{ field: string; message: string }> | undefined;
-      const detailMsg = details && details.length ? `${details[0].field}: ${details[0].message}` : undefined;
-      setError(detailMsg || apiError?.message || "Registration failed");
-    } finally {
-      setLoading(false);
-    }
+    // Handle registration logic here
+    console.log("Registration form submitted:", formData);
   };
 
   return (
     <div className="min-h-screen bg-gradient-subtle flex items-center justify-center px-4 py-8">
       <div className="w-full max-w-md animate-fade-in">
         {/* Back to Home */}
-        <Link
-          to="/"
+        <Link 
+          to="/" 
           className="inline-flex items-center gap-2 text-muted-foreground hover:text-primary transition-colors mb-6"
         >
           <ArrowLeft className="h-4 w-4" />
@@ -103,9 +51,7 @@ const Register = () => {
               <GraduationCap className="h-8 w-8 text-primary" />
             </div>
             <div>
-              <CardTitle className="text-2xl font-bold">
-                Create Account
-              </CardTitle>
+              <CardTitle className="text-2xl font-bold">Create Account</CardTitle>
               <CardDescription className="text-muted-foreground">
                 Get started with VERTEX ERP Management System
               </CardDescription>
@@ -114,20 +60,6 @@ const Register = () => {
 
           <CardContent className="space-y-6">
             <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="role">Account Type</Label>
-                <select
-                  id="role"
-                  name="role"
-                  value={formData.role}
-                  onChange={(e) => setFormData({ ...formData, role: e.target.value })}
-                  className="flex h-11 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  <option value="staff">School Staff</option>
-                  <option value="admin">Administrator</option>
-                  <option value="student">Student</option>
-                </select>
-              </div>
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-2">
                   <Label htmlFor="firstName">First Name</Label>
@@ -253,40 +185,21 @@ const Register = () => {
                   required
                   className="h-4 w-4 mt-1 rounded border-input text-primary focus:ring-primary"
                 />
-                <Label
-                  htmlFor="terms"
-                  className="text-sm text-muted-foreground leading-5"
-                >
+                <Label htmlFor="terms" className="text-sm text-muted-foreground leading-5">
                   I agree to the{" "}
-                  <Link
-                    to="/terms"
-                    className="text-primary hover:text-primary-dark"
-                  >
+                  <Link to="/terms" className="text-primary hover:text-primary-dark">
                     Terms of Service
                   </Link>{" "}
                   and{" "}
-                  <Link
-                    to="/privacy"
-                    className="text-primary hover:text-primary-dark"
-                  >
+                  <Link to="/privacy" className="text-primary hover:text-primary-dark">
                     Privacy Policy
                   </Link>
                 </Label>
               </div>
 
-              <Button
-                type="submit"
-                className="w-full h-11 bg-primary hover:bg-primary-dark"
-                disabled={loading}
-              >
-                {loading ? "Creating Account..." : "Create Account"}
+              <Button type="submit" className="w-full h-11 bg-primary hover:bg-primary-dark">
+                Create Account
               </Button>
-
-              {error && (
-                <div className="text-red-500 text-sm text-center p-2 bg-red-50 rounded-md">
-                  {error}
-                </div>
-              )}
             </form>
 
             <div className="relative">
@@ -294,9 +207,7 @@ const Register = () => {
                 <div className="w-full border-t border-border" />
               </div>
               <div className="relative flex justify-center text-xs uppercase">
-                <span className="bg-background px-2 text-muted-foreground">
-                  Or continue with
-                </span>
+                <span className="bg-background px-2 text-muted-foreground">Or continue with</span>
               </div>
             </div>
 
@@ -323,11 +234,7 @@ const Register = () => {
                 Google
               </Button>
               <Button variant="outline" className="h-11">
-                <svg
-                  className="h-4 w-4 mr-2"
-                  fill="currentColor"
-                  viewBox="0 0 24 24"
-                >
+                <svg className="h-4 w-4 mr-2" fill="currentColor" viewBox="0 0 24 24">
                   <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
                 </svg>
                 Facebook

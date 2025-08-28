@@ -1,5 +1,4 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { apiRequest } from '@/lib/queryClient';
 
 export type UserRole = 'student' | 'teacher' | 'admin';
 
@@ -22,8 +21,6 @@ interface UserContextType {
   isStudent: boolean;
   isTeacher: boolean;
   isAdmin: boolean;
-  login: (email: string, password: string) => Promise<void>;
-  logout: () => Promise<void>;
 }
 
 const UserContext = createContext<UserContextType | undefined>(undefined);
@@ -33,82 +30,26 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const loadMe = async () => {
-      try {
-        const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
-        const token = localStorage.getItem('token');
-        const res = await fetch(`${baseUrl}/api/auth/me`, {
-          credentials: 'include',
-          headers: token ? { Authorization: `Bearer ${token}` } : {},
-        });
-        if (res.status === 401) {
-          setUser(null);
-          return;
-        }
-        const json = await res.json();
-        const me = json?.data?.user as {
-          user_id: number;
-          email: string;
-          role: 'admin' | 'student' | 'staff';
-          first_name?: string;
-          last_name?: string;
-        } | undefined;
-        if (me) {
-          const mapped: User = {
-            id: String(me.user_id),
-            name: `${me.first_name ?? ''} ${me.last_name ?? ''}`.trim() || me.email,
-            email: me.email,
-            role: me.role === 'staff' ? 'teacher' : (me.role as User['role']),
-          };
-          setUser(mapped);
-        } else {
-          setUser(null);
-        }
-      } catch {
-        setUser(null);
-      } finally {
-        setIsLoading(false);
-      }
+    // Simulate loading user data - in real app this would come from JWT/API
+    const mockUser: User = {
+      id: '1',
+      name: 'Kevin Johnson',
+      email: 'kevin.johnson@school.edu',
+      role: 'student', // Change this to 'teacher' to test teacher view
+      profileImage: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=100&h=100',
+      studentId: '2024001',
+      class: 'Grade 12 - Science'
     };
-    loadMe();
+
+    setTimeout(() => {
+      setUser(mockUser);
+      setIsLoading(false);
+    }, 500);
   }, []);
 
   const isStudent = user?.role === 'student';
   const isTeacher = user?.role === 'teacher';
   const isAdmin = user?.role === 'admin';
-
-  const login = async (email: string, password: string): Promise<User | null> => {
-    const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
-    const res = await apiRequest('POST', `${baseUrl}/api/auth/login`, { email, password });
-    const json = await res.json();
-    const token = json?.data?.token as string | undefined;
-    if (token) localStorage.setItem('token', token);
-    const me = json?.data?.user as {
-      user_id: number;
-      email: string;
-      role: 'admin' | 'student' | 'staff';
-      first_name?: string;
-      last_name?: string;
-    } | undefined;
-    if (me) {
-      const mapped: User = {
-        id: String(me.user_id),
-        name: `${me.first_name ?? ''} ${me.last_name ?? ''}`.trim() || me.email,
-        email: me.email,
-        role: me.role === 'staff' ? 'teacher' : (me.role as User['role']),
-      };
-      setUser(mapped);
-      return mapped;
-    }
-    return null;
-  };
-
-  const logout = async () => {
-    const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
-    await apiRequest('POST', `${baseUrl}/api/auth/logout`);
-    setUser(null);
-    localStorage.removeItem('token');
-  };
 
   return (
     <UserContext.Provider value={{
@@ -117,9 +58,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       isLoading,
       isStudent,
       isTeacher,
-      isAdmin,
-      login,
-      logout
+      isAdmin
     }}>
       {children}
     </UserContext.Provider>

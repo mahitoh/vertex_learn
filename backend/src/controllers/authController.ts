@@ -11,7 +11,14 @@ export class AuthController {
     // Check validation errors
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      throw new CustomError('Validation failed', 400);
+      res.status(400).json({
+        success: false,
+        error: {
+          message: 'Validation failed',
+          details: errors.array().map((e: any) => ({ field: e.path ?? e.param, message: e.msg })),
+        },
+      });
+      return;
     }
 
     const { email, password, role, first_name, last_name, phone } = req.body;
@@ -29,7 +36,7 @@ export class AuthController {
     res.cookie('token', result.token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
+      sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax',
       maxAge: 60 * 60 * 1000, // 1 hour
     });
 
@@ -50,7 +57,14 @@ export class AuthController {
     // Check validation errors
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      throw new CustomError('Validation failed', 400);
+      res.status(400).json({
+        success: false,
+        error: {
+          message: 'Validation failed',
+          details: errors.array().map((e: any) => ({ field: e.path ?? e.param, message: e.msg })),
+        },
+      });
+      return;
     }
 
     const { email, password } = req.body;
@@ -61,7 +75,7 @@ export class AuthController {
     res.cookie('token', result.token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
+      sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax',
       maxAge: 60 * 60 * 1000, // 1 hour
     });
 

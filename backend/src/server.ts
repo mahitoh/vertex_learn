@@ -86,7 +86,27 @@ app.use(morgan("combined"));
 app.use(limiter);
 app.use(
   cors({
-    origin: process.env.FRONTEND_URL || "http://localhost:5173",
+    origin: (origin, callback) => {
+      const allowedOrigins = new Set<string>([
+        process.env.FRONTEND_URL || "http://localhost:5173",
+        "http://localhost:8080",
+        "http://localhost:3000", // allow same-origin (e.g. Swagger UI or local pages)
+      ]);
+      const localhostRegex = /^http:\/\/localhost(?::\d+)?$/;
+      const loopbackRegex = /^http:\/\/(127\.0\.0\.1|::1)(?::\d+)?$/;
+
+      // Allow non-browser requests (like curl/postman) with no origin
+      if (!origin) return callback(null, true);
+
+      if (
+        allowedOrigins.has(origin) ||
+        localhostRegex.test(origin) ||
+        loopbackRegex.test(origin)
+      ) {
+        return callback(null, true);
+      }
+      return callback(new Error(`CORS not allowed from origin: ${origin}`));
+    },
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
     allowedHeaders: ["Content-Type", "Authorization"],

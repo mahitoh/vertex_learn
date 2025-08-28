@@ -11,9 +11,7 @@ export const validateRegister = [
   
   body('password')
     .isLength({ min: 6 })
-    .withMessage('Password must be at least 6 characters long')
-    .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/)
-    .withMessage('Password must contain at least one lowercase letter, one uppercase letter, and one number'),
+    .withMessage('Password must be at least 6 characters long'),
   
   body('role')
     .isIn(['admin', 'student', 'staff'])
@@ -30,7 +28,7 @@ export const validateRegister = [
     .withMessage('Last name must be between 1 and 100 characters'),
   
   body('phone')
-    .optional()
+    .optional({ nullable: true, checkFalsy: true })
     .isMobilePhone('any')
     .withMessage('Please provide a valid phone number'),
 ];
@@ -59,9 +57,7 @@ export const validateChangePassword = [
   
   body('newPassword')
     .isLength({ min: 6 })
-    .withMessage('New password must be at least 6 characters long')
-    .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/)
-    .withMessage('New password must contain at least one lowercase letter, one uppercase letter, and one number'),
+    .withMessage('New password must be at least 6 characters long'),
 ];
 
 /**

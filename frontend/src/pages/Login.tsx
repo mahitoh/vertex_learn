@@ -1,10 +1,11 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Eye, EyeOff, GraduationCap, ArrowLeft } from "lucide-react";
+import { useUser } from "@/contexts/UserContext";
 
 const Login = () => {
   const [showPassword, setShowPassword] = useState(false);
@@ -12,6 +13,10 @@ const Login = () => {
     email: "",
     password: "",
   });
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const { login } = useUser();
+  const navigate = useNavigate();
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({
@@ -20,10 +25,20 @@ const Login = () => {
     });
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Handle login logic here
-    console.log("Login form submitted:", formData);
+    setError(null);
+    setSubmitting(true);
+    try {
+      await login(formData.email, formData.password);
+      // After login, redirect based on role; server cookie keeps session
+      // We don't have role here synchronously; navigate to dashboard which will load context
+      navigate('/dashboard');
+    } catch (err: any) {
+      setError(err?.message || 'Login failed');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -53,6 +68,9 @@ const Login = () => {
 
           <CardContent className="space-y-6">
             <form onSubmit={handleSubmit} className="space-y-4">
+              {error && (
+                <div className="text-red-600 text-sm" role="alert">{error}</div>
+              )}
               <div className="space-y-2">
                 <Label htmlFor="email">Email Address</Label>
                 <Input
@@ -115,8 +133,8 @@ const Login = () => {
                 </Link>
               </div>
 
-              <Button type="submit" className="w-full h-11 bg-primary hover:bg-primary-dark">
-                Sign In
+              <Button type="submit" className="w-full h-11 bg-primary hover:bg-primary-dark" disabled={submitting}>
+                {submitting ? 'Signing In...' : 'Sign In'}
               </Button>
             </form>
 

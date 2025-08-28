@@ -95,10 +95,14 @@ export class AuthService {
       // Hash password
       const password_hash = await this.hashPassword(userData.password);
 
-      // Create user
+      // Create user (omit raw password)
       const user = await prisma.user.create({
         data: {
-          ...userData,
+          email: userData.email,
+          role: userData.role,
+          first_name: userData.first_name,
+          last_name: userData.last_name,
+          phone: userData.phone || null,
           password_hash,
         },
       });
@@ -124,7 +128,8 @@ export class AuthService {
       if (error instanceof CustomError) {
         throw error;
       }
-      throw new CustomError("Registration failed", 500);
+      // Let Prisma and other errors propagate to the global error handler for proper status mapping
+      throw error as Error;
     }
   }
 

@@ -1,0 +1,340 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ===== USER MANAGEMENT & AUTHENTICATION =====
+model User {
+  id            Int          @id @default(autoincrement())
+  email         String       @unique
+  password      String
+  firstName     String
+  lastName      String
+  name          String       // Computed field: firstName + lastName
+  roleId        Int
+  role          Role         @relation(fields: [roleId], references: [id])
+  employeeId    String?      @unique
+  studentId     String?      @unique
+  department    String?
+  position      String?
+  joinDate      DateTime?
+  admissionDate DateTime?
+  class         String?      // For students
+  rollNumber    String?      // For students
+  organization  String?      // From registration form
+  isActive      Boolean      @default(true)
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  
+  // Relations
+  verifications Verification[]
+  leaves        Leave[]
+  payrolls      Payroll[]
+  performance   Performance[]
+  assets        Asset[]
+  notifications Notification[] @relation("recipient")
+  sentNotifications Notification[] @relation("sender")
+  
+  // Academic Module Relations
+  courses       Course[]     @relation("CourseInstructors")
+  enrollments   Enrollment[]
+  grades        Grade[]
+  attendance    Attendance[]
+  examStudents  ExamStudent[] @relation("ExamStudents")
+  
+  // Finance Module Relations
+  invoices      Invoice[]
+  payments      Payment[]
+  
+  @@map("users")
+}
+
+model Role {
+  id            Int          @id @default(autoincrement())
+  name          String       @unique // admin, teacher, student, staff
+  permissions   Json         // Store permissions as JSON
+  users         User[]
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  
+  @@map("roles")
+}
+
+// ===== ADMINISTRATION & HR MODULE =====
+model Verification {
+  id            Int          @id @default(autoincrement())
+  userId        Int
+  user          User         @relation(fields: [userId], references: [id])
+  role          String       // Staff, Teacher, Student
+  status        String       @default("pending") // pending, verified, rejected
+  submissionDate DateTime    @default(now())
+  documents     Json         // Store document metadata
+  comments      String?
+  updatedAt     DateTime     @updatedAt
+  
+  @@map("verifications")
+}
+
+model Leave {
+  id            Int          @id @default(autoincrement())
+  userId        Int
+  user          User         @relation(fields: [userId], references: [id])
+  type          String       // Annual, Sick, Personal
+  startDate     DateTime
+  endDate       DateTime
+  days          Int
+  status        String       @default("pending") // pending, approved, rejected
+  comments      String?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  
+  @@map("leaves")
+}
+
+model Payroll {
+  id            Int          @id @default(autoincrement())
+  userId        Int
+  user          User         @relation(fields: [userId], references: [id])
+  payPeriod     String       // e.g., "2025-09"
+  baseSalary    Float
+  bonuses       Float        @default(0)
+  deductions    Float        @default(0)
+  netPay        Float
+  status        String       @default("pending") // pending, paid
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  
+  @@map("payrolls")
+}
+
+model Performance {
+  id            Int          @id @default(autoincrement())
+  userId        Int
+  user          User         @relation(fields: [userId], references: [id])
+  period        String       // e.g., "Q1 2025"
+  score         Float
+  comments      String?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  
+  @@map("performance")
+}
+
+model Asset {
+  id            Int          @id @default(autoincrement())
+  name          String
+  category      String       // e.g., "Electronics", "Furniture"
+  status        String       // available, assigned, low
+  assignedTo    Int?
+  user          User?        @relation(fields: [assignedTo], references: [id])
+  purchaseDate  DateTime
+  quantity      Int          @default(1)
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  
+  @@map("assets")
+}
+
+// ===== ACADEMIC MODULE =====
+model Course {
+  id            Int          @id @default(autoincrement())
+  name          String
+  code          String       @unique
+  credits       Int
+  description   String?
+  instructorId  Int
+  instructor    User         @relation("CourseInstructors", fields: [instructorId], references: [id])
+  isActive      Boolean      @default(true)
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  
+  // Relations
+  enrollments   Enrollment[]
+  grades        Grade[]
+  attendance    Attendance[]
+  exams         Exam[]
+  
+  @@map("courses")
+}
+
+model Enrollment {
+  id            Int          @id @default(autoincrement())
+  studentId     Int
+  student       User         @relation(fields: [studentId], references: [id])
+  courseId      Int
+  course        Course       @relation(fields: [courseId], references: [id])
+  enrollmentDate DateTime    @default(now())
+  status        String       @default("active") // active, completed, dropped
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  
+  @@unique([studentId, courseId])
+  @@map("enrollments")
+}
+
+model Grade {
+  id            Int          @id @default(autoincrement())
+  studentId     Int
+  student       User         @relation(fields: [studentId], references: [id])
+  courseId      Int
+  course        Course       @relation(fields: [courseId], references: [id])
+  assignmentType String      // assignment, exam, quiz, final
+  score         Float
+  maxScore      Float
+  percentage    Float        // Computed: (score / maxScore) * 100
+  comments      String?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  
+  @@map("grades")
+}
+
+model Attendance {
+  id            Int          @id @default(autoincrement())
+  studentId     Int
+  student       User         @relation(fields: [studentId], references: [id])
+  courseId      Int
+  course        Course       @relation(fields: [courseId], references: [id])
+  date          DateTime
+  status        String       // present, absent, late
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  
+  @@unique([studentId, courseId, date])
+  @@map("attendance")
+}
+
+model Exam {
+  id            Int          @id @default(autoincrement())
+  courseId      Int
+  course        Course       @relation(fields: [courseId], references: [id])
+  title         String
+  description   String?
+  examDate      DateTime
+  duration      Int          // in minutes
+  totalMarks    Float
+  location      String?
+  isPublished   Boolean      @default(false)
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  
+  // Relations
+  examStudents  ExamStudent[] @relation("ExamStudents")
+  
+  @@map("exams")
+}
+
+model ExamStudent {
+  id            Int          @id @default(autoincrement())
+  examId        Int
+  exam          Exam         @relation("ExamStudents", fields: [examId], references: [id])
+  studentId     Int
+  student       User         @relation("ExamStudents", fields: [studentId], references: [id])
+  score         Float?
+  maxScore      Float
+  percentage    Float?       // Computed: (score / maxScore) * 100
+  isPublished   Boolean      @default(false)
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  
+  @@unique([examId, studentId])
+  @@map("exam_students")
+}
+
+// ===== MARKETING & FINANCE MODULE =====
+model Invoice {
+  id            Int          @id @default(autoincrement())
+  studentId     Int
+  student       User         @relation(fields: [studentId], references: [id])
+  invoiceNumber String       @unique
+  amount        Float
+  description  String
+  dueDate       DateTime
+  status        String       @default("pending") // pending, paid, overdue
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  
+  // Relations
+  payments      Payment[]
+  
+  @@map("invoices")
+}
+
+model Payment {
+  id            Int          @id @default(autoincrement())
+  invoiceId     Int
+  invoice       Invoice      @relation(fields: [invoiceId], references: [id])
+  studentId     Int
+  student       User         @relation(fields: [studentId], references: [id])
+  amount        Float
+  paymentMethod String       // credit_card, bank_transfer, cash
+  transactionId String?
+  paymentDate   DateTime     @default(now())
+  status        String       @default("completed") // pending, completed, failed
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  
+  @@map("payments")
+}
+
+model Expense {
+  id            Int          @id @default(autoincrement())
+  description  String
+  amount        Float
+  category      String       // utilities, supplies, maintenance
+  date          DateTime
+  receipt       String?      // File path or URL
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  
+  @@map("expenses")
+}
+
+model Campaign {
+  id            Int          @id @default(autoincrement())
+  name          String
+  description   String?
+  startDate     DateTime
+  endDate       DateTime
+  budget        Float
+  spent         Float        @default(0)
+  leads         Int          @default(0)
+  conversions   Int          @default(0)
+  roi           Float?       // Computed: ((conversions * value_per_conversion) - spent) / spent
+  status        String       @default("active") // active, paused, completed
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  
+  @@map("campaigns")
+}
+
+// ===== NOTIFICATIONS & SETTINGS =====
+model Notification {
+  id            Int          @id @default(autoincrement())
+  message       String
+  recipientId   Int
+  recipient     User         @relation("recipient", fields: [recipientId], references: [id])
+  senderId      Int
+  sender        User         @relation("sender", fields: [senderId], references: [id])
+  type          String       // verification, leave, grade, payment, etc.
+  status        String       @default("unread") // unread, read
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  
+  @@map("notifications")
+}
+
+model Setting {
+  id            Int          @id @default(autoincrement())
+  key           String       @unique
+  value         String
+  description   String?
+  updatedAt     DateTime     @updatedAt
+  
+  @@map("settings")
+}
+

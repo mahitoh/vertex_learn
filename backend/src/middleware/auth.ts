@@ -58,9 +58,21 @@ export const authenticateJWT = async (
       });
     }
 
+    console.log('User validation check:', {
+      userId: user.id,
+      email: user.email,
+      validation_status: user.validation_status,
+      role: user.role_name
+    });
+
     if (user.validation_status !== 'approved') {
       return res.status(403).json({ 
-        error: 'Account not validated. Please wait for admin approval.' 
+        error: 'Account not validated. Please wait for admin approval.',
+        debug: {
+          userId: user.id,
+          email: user.email,
+          validation_status: user.validation_status
+        }
       });
     }
 

@@ -16,6 +16,7 @@ import adminRoutes from './routes/admin.js';
 import userRoutes from './routes/users.js';
 import roleRoutes from './routes/roles.js';
 import verificationRoutes from './routes/verifications.js';
+import debugRoutes from './routes/debug.js';
 import leaveRoutes from './routes/leaves.js';
 import payrollRoutes from './routes/payroll.js';
 import performanceRoutes from './routes/performance.js';
@@ -107,6 +108,7 @@ app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 
 // API Routes
 app.use('/api/auth', authRoutes);
+app.use('/api/debug', debugRoutes);
 
 // Protected routes - require authentication
 app.use('/api/admin', adminRoutes);

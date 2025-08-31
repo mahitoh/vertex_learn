@@ -8,6 +8,7 @@ export interface AuthenticatedRequest extends Request {
     email: string;
     role: string;
     permissions: any;
+    userId?: number; // Add this for compatibility
   };
 }
 
@@ -35,32 +36,40 @@ export const authenticateJWT = async (
     const decoded = jwt.verify(token, process.env.JWT_SECRET) as any;
     
     // Get user with role and permissions
-    const query = `
+    const queryText = `
       SELECT 
-        users.id, 
-        users.email, 
-        users.isActive,
-        roles.name as role_name, 
-        roles.permissions
-      FROM users
-      JOIN roles ON users.roleId = roles.id
-      WHERE users.id = ?
+        u.id, 
+        u.email, 
+        u.is_active,
+        u.validation_status,
+        r.name as role_name, 
+        r.description as role_description
+      FROM users u
+      JOIN roles r ON u.role_id = r.id
+      WHERE u.id = ?
     `;
     
-    const result = await db.query(query, [decoded.userId]);
+    const result = await db.query(queryText, [decoded.userId]);
     const user = result.rows[0];
     
-    if (!user || !user.isActive) {
+    if (!user || !user.is_active) {
       return res.status(401).json({ 
         error: 'Invalid or inactive user token.' 
       });
     }
 
+    if (user.validation_status !== 'approved') {
+      return res.status(403).json({ 
+        error: 'Account not validated. Please wait for admin approval.' 
+      });
+    }
+
     req.user = {
       id: user.id,
+      userId: user.id, // Add for compatibility
       email: user.email,
       role: user.role_name,
-      permissions: user.permissions
+      permissions: user.role_description
     };
 
     next();

@@ -28,9 +28,13 @@ CREATE TABLE users (
     hire_date DATE,
     salary DECIMAL(10,2),
     is_active BOOLEAN DEFAULT TRUE,
+    validation_status ENUM('pending', 'approved', 'rejected') DEFAULT 'pending',
+    validated_by INT NULL,
+    validated_at TIMESTAMP NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    FOREIGN KEY (role_id) REFERENCES roles(id)
+    FOREIGN KEY (role_id) REFERENCES roles(id),
+    FOREIGN KEY (validated_by) REFERENCES users(id)
 );
 
 -- Courses table
@@ -238,7 +242,7 @@ INSERT INTO roles (name, description) VALUES
 
 -- Insert default admin user (password: admin123)
 INSERT INTO users (name, email, password, role_id, department, employee_id) VALUES
-('Admin User', 'admin@vertexlearn.com', '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewdBPj4J/vHhHh6.', 1, 'Administration', 'ADMIN001');
+('Admin User', 'admin@vertexlearn.com', '$2b$12$qqOYbfgXd8vLtD1RAAgKyuH8vUs71pE6akjwkNn6ouzWlVA.dcYgO', 1, 'Administration', 'ADMIN001');
 
 -- Insert default settings
 INSERT INTO settings (key_name, value, description) VALUES

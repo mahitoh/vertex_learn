@@ -1,14 +1,19 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Eye, EyeOff, GraduationCap, ArrowLeft } from "lucide-react";
+import { Eye, EyeOff, GraduationCap, ArrowLeft, AlertCircle, CheckCircle } from "lucide-react";
+import { useUser } from "@/contexts/UserContext";
+import { ApiError } from "@/services/api";
 
 const Register = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
   const [formData, setFormData] = useState({
     firstName: "",
     lastName: "",
@@ -19,18 +24,62 @@ const Register = () => {
     terms: false,
   });
 
+  const { register } = useUser();
+  const navigate = useNavigate();
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value, type, checked } = e.target;
     setFormData({
       ...formData,
       [name]: type === "checkbox" ? checked : value,
     });
+    // Clear error when user starts typing
+    if (error) setError(null);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Handle registration logic here
-    console.log("Registration form submitted:", formData);
+    setIsLoading(true);
+    setError(null);
+
+    // Validate passwords match
+    if (formData.password !== formData.confirmPassword) {
+      setError("Passwords do not match");
+      setIsLoading(false);
+      return;
+    }
+
+    // Validate password strength
+    if (formData.password.length < 6) {
+      setError("Password must be at least 6 characters long");
+      setIsLoading(false);
+      return;
+    }
+
+    try {
+      await register({
+        firstName: formData.firstName,
+        lastName: formData.lastName,
+        email: formData.email,
+        password: formData.password,
+        organization: formData.organization,
+        roleId: 3, // Default to student role (you can add role selection later)
+      });
+      
+      setSuccess(true);
+      // Redirect to login after 3 seconds
+      setTimeout(() => {
+        navigate('/login');
+      }, 3000);
+    } catch (err) {
+      if (err instanceof ApiError) {
+        setError(err.message);
+      } else {
+        setError('An unexpected error occurred. Please try again.');
+      }
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -59,6 +108,20 @@ const Register = () => {
           </CardHeader>
 
           <CardContent className="space-y-6">
+            {error && (
+              <div className="flex items-center gap-2 p-3 text-sm text-red-600 bg-red-50 border border-red-200 rounded-md">
+                <AlertCircle className="h-4 w-4" />
+                {error}
+              </div>
+            )}
+
+            {success && (
+              <div className="flex items-center gap-2 p-3 text-sm text-green-600 bg-green-50 border border-green-200 rounded-md">
+                <CheckCircle className="h-4 w-4" />
+                Registration successful! You can now log in with your credentials. Redirecting to login...
+              </div>
+            )}
+            
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-2">
@@ -197,8 +260,12 @@ const Register = () => {
                 </Label>
               </div>
 
-              <Button type="submit" className="w-full h-11 bg-primary hover:bg-primary-dark">
-                Create Account
+              <Button 
+                type="submit" 
+                className="w-full h-11 bg-primary hover:bg-primary-dark"
+                disabled={isLoading || success}
+              >
+                {isLoading ? 'Creating Account...' : success ? 'Account Created!' : 'Create Account'}
               </Button>
             </form>
 

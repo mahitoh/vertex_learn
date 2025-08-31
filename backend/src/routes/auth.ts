@@ -110,6 +110,38 @@ router.post('/login', validateLogin, async (req: Request, res: Response) => {
       });
     }
 
+    // Check validation status
+    if (user.validation_status === 'pending') {
+      return res.status(403).json({
+        error: 'Your account is pending admin approval. Please wait for validation.',
+        status: 'pending'
+      });
+    }
+
+    if (user.validation_status === 'rejected') {
+      return res.status(403).json({
+        error: 'Your account has been rejected. Please contact administration.',
+        status: 'rejected'
+      });
+    }
+
+    // Check validation status
+    if (user.validation_status === 'pending') {
+      return res.status(403).json({
+        error: 'Account pending validation',
+        message: 'Your account is pending admin approval. Please wait for validation.',
+        status: 'pending'
+      });
+    }
+
+    if (user.validation_status === 'rejected') {
+      return res.status(403).json({
+        error: 'Account rejected',
+        message: 'Your account has been rejected. Please contact administration.',
+        status: 'rejected'
+      });
+    }
+
     // Generate tokens
     const secret = process.env.JWT_SECRET || 'your-secret-key';
     const expiresIn = process.env.JWT_EXPIRES_IN || '24h';
@@ -151,6 +183,7 @@ router.post('/login', validateLogin, async (req: Request, res: Response) => {
         employeeId: user.employee_id,
         department: user.department,
         phone: user.phone,
+        validationStatus: user.validation_status,
         role: {
           id: user.role_id,
           name: user.role_name,

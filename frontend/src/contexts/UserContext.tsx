@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { authApi, tokenManager, User as ApiUser } from '../services/api';
 
 export type UserRole = 'student' | 'teacher' | 'admin';
 
@@ -8,10 +9,13 @@ export interface User {
   email: string;
   role: UserRole;
   profileImage?: string;
-  studentId?: string;
-  teacherId?: string;
+  employeeId?: string;
   department?: string;
-  class?: string;
+  phone?: string;
+  address?: string;
+  dateOfBirth?: string;
+  hireDate?: string;
+  salary?: number;
 }
 
 interface UserContextType {
@@ -21,6 +25,9 @@ interface UserContextType {
   isStudent: boolean;
   isTeacher: boolean;
   isAdmin: boolean;
+  login: (email: string, password: string) => Promise<void>;
+  logout: () => void;
+  register: (data: any) => Promise<void>;
 }
 
 const UserContext = createContext<UserContextType | undefined>(undefined);
@@ -29,23 +36,93 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
+  // Convert API user to local user format
+  const convertApiUser = (apiUser: ApiUser): User => ({
+    id: apiUser.id,
+    name: apiUser.name,
+    email: apiUser.email,
+    role: apiUser.role.name as UserRole,
+    employeeId: apiUser.employeeId,
+    department: apiUser.department,
+    phone: apiUser.phone,
+    address: apiUser.address,
+    dateOfBirth: apiUser.dateOfBirth,
+    hireDate: apiUser.hireDate,
+    salary: apiUser.salary,
+  });
+
+  // Load user from token on app start
   useEffect(() => {
-    // Simulate loading user data - in real app this would come from JWT/API
-    const mockUser: User = {
-      id: '1',
-      name: 'Kevin Johnson',
-      email: 'kevin.johnson@school.edu',
-      role: 'student', // Change this to 'teacher' to test teacher view
-      profileImage: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=100&h=100',
-      studentId: '2024001',
-      class: 'Grade 12 - Science'
+    const loadUser = async () => {
+      try {
+        const token = tokenManager.getAccessToken();
+        if (!token) {
+          setIsLoading(false);
+          return;
+        }
+
+        // Check if token is expired
+        if (tokenManager.isTokenExpired(token)) {
+          const refreshToken = tokenManager.getRefreshToken();
+          if (refreshToken && !tokenManager.isTokenExpired(refreshToken)) {
+            try {
+              const response = await authApi.refreshToken(refreshToken);
+              tokenManager.setTokens(response.accessToken, refreshToken);
+              setUser(convertApiUser(response.user));
+            } catch (error) {
+              tokenManager.clearTokens();
+            }
+          } else {
+            tokenManager.clearTokens();
+          }
+          setIsLoading(false);
+          return;
+        }
+
+        // Get current user
+        const response = await authApi.getCurrentUser();
+        setUser(convertApiUser(response.user));
+      } catch (error) {
+        console.error('Failed to load user:', error);
+        tokenManager.clearTokens();
+      } finally {
+        setIsLoading(false);
+      }
     };
 
-    setTimeout(() => {
-      setUser(mockUser);
-      setIsLoading(false);
-    }, 500);
+    loadUser();
   }, []);
+
+  const login = async (email: string, password: string) => {
+    try {
+      const response = await authApi.login(email, password);
+      tokenManager.setTokens(response.accessToken, response.refreshToken);
+      setUser(convertApiUser(response.user));
+    } catch (error) {
+      throw error; // Re-throw to handle in component
+    }
+  };
+
+  const logout = async () => {
+    try {
+      await authApi.logout();
+    } catch (error) {
+      console.error('Logout error:', error);
+    } finally {
+      tokenManager.clearTokens();
+      setUser(null);
+    }
+  };
+
+  const register = async (data: any) => {
+    try {
+      const response = await authApi.register(data);
+      // Don't auto-login after registration since user needs validation
+      return response;
+    } catch (error) {
+      throw error; // Re-throw to handle in component
+    }
+  };
 
   const isStudent = user?.role === 'student';
   const isTeacher = user?.role === 'teacher';
@@ -58,7 +135,10 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       isLoading,
       isStudent,
       isTeacher,
-      isAdmin
+      isAdmin,
+      login,
+      logout,
+      register,
     }}>
       {children}
     </UserContext.Provider>

@@ -19,6 +19,7 @@ const Register = () => {
     lastName: "",
     email: "",
     organization: "",
+    role: "student", // Default to student
     password: "",
     confirmPassword: "",
     terms: false,
@@ -63,7 +64,7 @@ const Register = () => {
         email: formData.email,
         password: formData.password,
         organization: formData.organization,
-        roleId: 3, // Default to student role (you can add role selection later)
+        roleId: formData.role === "teacher" ? 2 : 3, // 2 for teacher, 3 for student
       });
       
       setSuccess(true);
@@ -178,6 +179,58 @@ const Register = () => {
                   required
                   className="h-11"
                 />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="role">I am a...</Label>
+                <div className="grid grid-cols-2 gap-3">
+                  <div 
+                    className={`p-4 border-2 rounded-lg cursor-pointer transition-all ${
+                      formData.role === 'student' 
+                        ? 'border-primary bg-primary/5' 
+                        : 'border-gray-200 hover:border-gray-300'
+                    }`}
+                    onClick={() => setFormData({...formData, role: 'student'})}
+                  >
+                    <div className="flex items-center space-x-3">
+                      <input
+                        type="radio"
+                        name="role"
+                        value="student"
+                        checked={formData.role === 'student'}
+                        onChange={handleInputChange}
+                        className="text-primary focus:ring-primary"
+                      />
+                      <div>
+                        <div className="font-medium text-gray-900">Student</div>
+                        <div className="text-sm text-gray-500">I'm here to learn</div>
+                      </div>
+                    </div>
+                  </div>
+                  <div 
+                    className={`p-4 border-2 rounded-lg cursor-pointer transition-all ${
+                      formData.role === 'teacher' 
+                        ? 'border-primary bg-primary/5' 
+                        : 'border-gray-200 hover:border-gray-300'
+                    }`}
+                    onClick={() => setFormData({...formData, role: 'teacher'})}
+                  >
+                    <div className="flex items-center space-x-3">
+                      <input
+                        type="radio"
+                        name="role"
+                        value="teacher"
+                        checked={formData.role === 'teacher'}
+                        onChange={handleInputChange}
+                        className="text-primary focus:ring-primary"
+                      />
+                      <div>
+                        <div className="font-medium text-gray-900">Teacher</div>
+                        <div className="text-sm text-gray-500">I'm here to teach</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
 
               <div className="space-y-2">

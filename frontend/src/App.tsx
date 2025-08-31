@@ -71,30 +71,30 @@ const queryClient = new QueryClient();
 // Protected Route Component
 const ProtectedRoute = ({ children, requiredRole }: { children: React.ReactNode; requiredRole?: string }) => {
   const { user, isLoading } = useUser();
-  
+
   if (isLoading) {
     return <div className="flex items-center justify-center min-h-screen">Loading...</div>;
   }
-  
+
   if (!user) {
     return <Navigate to="/login" replace />;
   }
-  
+
   if (requiredRole && user.role !== requiredRole) {
     return <Navigate to="/dashboard" replace />;
   }
-  
+
   return <>{children}</>;
 };
 
 // Dashboard Router Component
 const DashboardRouter = () => {
   const { user } = useUser();
-  
+
   if (!user) {
     return <Navigate to="/login" replace />;
   }
-  
+
   // Route based on user role
   switch (user.role) {
     case 'admin':

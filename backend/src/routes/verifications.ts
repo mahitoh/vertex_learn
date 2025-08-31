@@ -1,66 +1,129 @@
 import { Router, Request, Response } from "express";
 import { query } from "../config/database.js";
-import { validatePagination, validateId } from "../middleware/validation.js";
 import { requireAdmin } from "../middleware/auth.js";
 import { AuthenticatedRequest } from "../middleware/auth.js";
 
 const router = Router();
 
-// Get all verifications with pagination and filters
+// Get verification statistics
 router.get(
-  "/",
-  validatePagination,
+  "/stats/overview",
   requireAdmin,
   async (req: AuthenticatedRequest, res: Response) => {
     try {
-      const { search, role, status, page = 1, limit = 10 } = req.query;
-      const skip = (parseInt(page as string) - 1) * parseInt(limit as string);
+      // Get total users count
+      const totalUsersResult = await query('SELECT COUNT(*) as count FROM users');
+      const totalVerifications = totalUsersResult.rows[0].count;
 
-      const where: any = {
-        ...(search
-          ? {
-              user: {
-                OR: [
-                  { name: { contains: search as string, mode: "insensitive" } },
-                  {
-                    email: { contains: search as string, mode: "insensitive" },
-                  },
-                ],
-              },
-            }
-          : {}),
-        ...(role
-          ? { role: { equals: role as string, mode: "insensitive" } }
-          : {}),
-        ...(status
-          ? { status: { equals: status as string, mode: "insensitive" } }
-          : {}),
-      };
+      // Get pending verifications (users with validation_status = 'pending')
+      const pendingResult = await query('SELECT COUNT(*) as count FROM users WHERE validation_status = ?', ['pending']);
+      const pendingVerifications = pendingResult.rows[0].count;
 
-      const verifications = await prisma.verification.findMany({
-        where,
-        skip,
-        take: parseInt(limit as string),
-        include: {
-          user: {
-            select: {
-              id: true,
-              firstName: true,
-              lastName: true,
-              name: true,
-              email: true,
-              employeeId: true,
-              studentId: true,
-              department: true,
-              position: true,
-              organization: true,
-            },
-          },
-        },
-        orderBy: { submissionDate: "desc" },
+      // Get verified count (users with validation_status = 'approved')
+      const verifiedResult = await query('SELECT COUNT(*) as count FROM users WHERE validation_status = ?', ['approved']);
+      const verifiedCount = verifiedResult.rows[0].count;
+
+      // Get rejected count
+      const rejectedResult = await query('SELECT COUNT(*) as count FROM users WHERE validation_status = ?', ['rejected']);
+      const rejectedCount = rejectedResult.rows[0].count;
+
+      // Get verifications by role
+      const roleStatsResult = await query(`
+        SELECT r.name as role, COUNT(u.id) as count 
+        FROM roles r 
+        LEFT JOIN users u ON r.id = u.role_id 
+        GROUP BY r.id, r.name
+      `);
+
+      // Get recent users (acting as verifications)
+      const recentUsersResult = await query(`
+        SELECT u.id, u.name, u.email, u.validation_status, u.created_at, r.name as role_name
+        FROM users u 
+        LEFT JOIN roles r ON u.role_id = r.id 
+        WHERE u.validation_status = 'pending'
+        ORDER BY u.created_at DESC 
+        LIMIT 5
+      `);
+
+      res.json({
+        totalVerifications,
+        pendingVerifications,
+        verifiedCount,
+        rejectedCount,
+        verificationsByRole: roleStatsResult.rows,
+        recentVerifications: recentUsersResult.rows,
       });
+    } catch (error) {
+      console.error("Get verification stats error:", error);
+      res.status(500).json({
+        error: "Internal server error while fetching verification statistics",
+      });
+    }
+  }
+);
 
-      const total = await prisma.verification.count({ where });
+// Get all verifications with pagination and filters
+router.get(
+  "/",
+  requireAdmin,
+  async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { search, role, status = 'pending', page = 1, limit = 10 } = req.query;
+      const offset = (parseInt(page as string) - 1) * parseInt(limit as string);
+
+      // Build WHERE clause
+      let whereClause = 'WHERE u.validation_status = ?';
+      let params: any[] = [status];
+
+      if (search) {
+        whereClause += ' AND (u.name LIKE ? OR u.email LIKE ?)';
+        params.push(`%${search}%`, `%${search}%`);
+      }
+
+      if (role) {
+        whereClause += ' AND r.name = ?';
+        params.push(role);
+      }
+
+      // Get users (acting as verifications)
+      const usersQuery = `
+        SELECT 
+          u.id, u.name, u.email, u.employee_id, u.department, 
+          u.validation_status, u.created_at, u.updated_at,
+          r.name as role_name, r.description as role_description
+        FROM users u 
+        LEFT JOIN roles r ON u.role_id = r.id 
+        ${whereClause}
+        ORDER BY u.created_at DESC 
+        LIMIT ? OFFSET ?
+      `;
+
+      const usersResult = await query(usersQuery, [...params, parseInt(limit as string), offset]);
+
+      // Get total count
+      const countQuery = `
+        SELECT COUNT(*) as total 
+        FROM users u 
+        LEFT JOIN roles r ON u.role_id = r.id 
+        ${whereClause}
+      `;
+      const countResult = await query(countQuery, params);
+      const total = countResult.rows[0].total;
+
+      // Format data to match expected structure
+      const verifications = usersResult.rows.map((user: any) => ({
+        id: user.id,
+        role: user.role_name,
+        status: user.validation_status,
+        submissionDate: user.created_at,
+        user: {
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          employeeId: user.employee_id,
+          department: user.department
+        }
+      }));
 
       res.json({
         data: verifications,
@@ -73,119 +136,6 @@ router.get(
       console.error("Get verifications error:", error);
       res.status(500).json({
         error: "Internal server error while fetching verifications",
-      });
-    }
-  }
-);
-
-// Get verification statistics
-router.get(
-  "/stats/overview",
-  requireAdmin,
-  async (req: AuthenticatedRequest, res: Response) => {
-    try {
-      const totalVerifications = await prisma.verification.count();
-      const pendingVerifications = await prisma.verification.count({
-        where: { status: "pending" },
-      });
-      const verifiedCount = await prisma.verification.count({
-        where: { status: "verified" },
-      });
-      const rejectedCount = await prisma.verification.count({
-        where: { status: "rejected" },
-      });
-
-      const verificationsByRole = await prisma.verification.groupBy({
-        by: ["role"],
-        _count: { id: true },
-      });
-
-      const verificationsByStatus = await prisma.verification.groupBy({
-        by: ["status"],
-        _count: { id: true },
-      });
-
-      const recentVerifications = await prisma.verification.findMany({
-        take: 5,
-        orderBy: { submissionDate: "desc" },
-        include: {
-          user: {
-            select: {
-              name: true,
-              email: true,
-            },
-          },
-        },
-      });
-
-      res.json({
-        totalVerifications,
-        pendingVerifications,
-        verifiedCount,
-        rejectedCount,
-        verificationsByRole,
-        verificationsByStatus,
-        recentVerifications,
-      });
-    } catch (error) {
-      console.error("Get verification stats error:", error);
-      res.status(500).json({
-        error: "Internal server error while fetching verification statistics",
-      });
-    }
-  }
-);
-
-// Get verification by ID
-router.get(
-  "/:id",
-  requireAdmin,
-  async (req: AuthenticatedRequest, res: Response) => {
-    try {
-      const { id } = req.params;
-      if (!id || isNaN(parseInt(id)) || parseInt(id) < 1) {
-        return res.status(400).json({
-          errors: [
-            {
-              field: "id",
-              message: "ID must be a positive integer",
-              value: id,
-            },
-          ],
-        });
-      }
-
-      const verification = await prisma.verification.findUnique({
-        where: { id: parseInt(id) },
-        include: {
-          user: {
-            select: {
-              id: true,
-              firstName: true,
-              lastName: true,
-              name: true,
-              email: true,
-              employeeId: true,
-              studentId: true,
-              department: true,
-              position: true,
-              organization: true,
-            },
-          },
-        },
-      });
-
-      if (!verification) {
-        return res.status(404).json({
-          error: "Verification not found",
-        });
-      }
-
-      res.json({ verification });
-    } catch (error) {
-      console.error("Get verification error:", error);
-      res.status(500).json({
-        error: "Internal server error while fetching verification",
       });
     }
   }
@@ -212,61 +162,40 @@ router.post(
       const { comments } = req.body;
       const adminId = req.user!.id;
 
-      // Check if verification exists and is pending
-      const verification = await prisma.verification.findUnique({
-        where: { id: parseInt(id) },
-        include: { user: true },
-      });
-
-      if (!verification) {
+      // Check if user exists and is pending
+      const userResult = await query('SELECT * FROM users WHERE id = ?', [parseInt(id)]);
+      
+      if (userResult.rows.length === 0) {
         return res.status(404).json({
-          error: "Verification not found",
+          error: "User not found",
         });
       }
 
-      if (verification.status !== "pending") {
+      const user = userResult.rows[0];
+
+      if (user.validation_status !== "pending") {
         return res.status(400).json({
-          error: "Verification is not in pending status",
+          error: "User is not in pending status",
         });
       }
 
-      // Update verification status
-      const updatedVerification = await prisma.verification.update({
-        where: { id: parseInt(id) },
-        data: {
-          status: "verified",
-          comments: comments || verification.comments,
-          updatedAt: new Date(),
-        },
-        include: {
-          user: {
-            select: {
-              id: true,
-              firstName: true,
-              lastName: true,
-              name: true,
-              email: true,
-            },
-          },
-        },
-      });
+      // Update user validation status
+      await query(
+        'UPDATE users SET validation_status = ?, validated_by = ?, validated_at = NOW() WHERE id = ?',
+        ['approved', adminId, parseInt(id)]
+      );
 
-      // Create notification for the user
-      await prisma.notification.create({
-        data: {
-          message: `Your verification for ${
-            verification.role
-          } role has been approved${comments ? `: ${comments}` : ""}`,
-          recipientId: verification.userId,
-          senderId: adminId,
-          type: "verification",
-          status: "unread",
-        },
-      });
+      // Get updated user info
+      const updatedUserResult = await query(`
+        SELECT u.*, r.name as role_name 
+        FROM users u 
+        LEFT JOIN roles r ON u.role_id = r.id 
+        WHERE u.id = ?
+      `, [parseInt(id)]);
 
       res.json({
-        message: "Verification approved successfully",
-        verification: updatedVerification,
+        message: "User verification approved successfully",
+        user: updatedUserResult.rows[0],
       });
     } catch (error) {
       console.error("Approve verification error:", error);
@@ -298,21 +227,20 @@ router.post(
       const { comments } = req.body;
       const adminId = req.user!.id;
 
-      // Check if verification exists and is pending
-      const verification = await prisma.verification.findUnique({
-        where: { id: parseInt(id) },
-        include: { user: true },
-      });
-
-      if (!verification) {
+      // Check if user exists and is pending
+      const userResult = await query('SELECT * FROM users WHERE id = ?', [parseInt(id)]);
+      
+      if (userResult.rows.length === 0) {
         return res.status(404).json({
-          error: "Verification not found",
+          error: "User not found",
         });
       }
 
-      if (verification.status !== "pending") {
+      const user = userResult.rows[0];
+
+      if (user.validation_status !== "pending") {
         return res.status(400).json({
-          error: "Verification is not in pending status",
+          error: "User is not in pending status",
         });
       }
 
@@ -322,88 +250,29 @@ router.post(
         });
       }
 
-      // Update verification status
-      const updatedVerification = await prisma.verification.update({
-        where: { id: parseInt(id) },
-        data: {
-          status: "rejected",
-          comments,
-          updatedAt: new Date(),
-        },
-        include: {
-          user: {
-            select: {
-              id: true,
-              firstName: true,
-              lastName: true,
-              name: true,
-              email: true,
-            },
-          },
-        },
-      });
+      // Update user validation status
+      await query(
+        'UPDATE users SET validation_status = ?, validated_by = ?, validated_at = NOW() WHERE id = ?',
+        ['rejected', adminId, parseInt(id)]
+      );
 
-      // Create notification for the user
-      await prisma.notification.create({
-        data: {
-          message: `Your verification for ${verification.role} role has been rejected: ${comments}`,
-          recipientId: verification.userId,
-          senderId: adminId,
-          type: "verification",
-          status: "unread",
-        },
-      });
+      // Get updated user info
+      const updatedUserResult = await query(`
+        SELECT u.*, r.name as role_name 
+        FROM users u 
+        LEFT JOIN roles r ON u.role_id = r.id 
+        WHERE u.id = ?
+      `, [parseInt(id)]);
 
       res.json({
-        message: "Verification rejected successfully",
-        verification: updatedVerification,
+        message: "User verification rejected successfully",
+        user: updatedUserResult.rows[0],
+        comments: comments,
       });
     } catch (error) {
       console.error("Reject verification error:", error);
       res.status(500).json({
         error: "Internal server error while rejecting verification",
-      });
-    }
-  }
-);
-
-// Get verification documents
-router.get(
-  "/:id/documents",
-  requireAdmin,
-  async (req: AuthenticatedRequest, res: Response) => {
-    try {
-      const { id } = req.params;
-      if (!id || isNaN(parseInt(id)) || parseInt(id) < 1) {
-        return res.status(400).json({
-          errors: [
-            {
-              field: "id",
-              message: "ID must be a positive integer",
-              value: id,
-            },
-          ],
-        });
-      }
-
-      const verification = await prisma.verification.findUnique({
-        where: { id: parseInt(id) },
-        select: { documents: true },
-      });
-
-      if (!verification) {
-        return res.status(404).json({
-          error: "Verification not found",
-        });
-      }
-
-      res.json({
-        documents: verification.documents,
-      });
-    } catch (error) {
-      console.error("Get verification documents error:", error);
-      res.status(500).json({
-        error: "Internal server error while fetching verification documents",
       });
     }
   }

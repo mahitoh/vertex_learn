@@ -27,21 +27,29 @@ const API_BASE_URL = 'http://localhost:3000/api';
 
 const api = {
     get: async (endpoint: string) => {
-        const token = localStorage.getItem('token');
+        const token = localStorage.getItem('accessToken');
+        console.log('Making API call to:', endpoint);
+        console.log('Token being used:', token ? `${token.substring(0, 20)}...` : 'No token');
+
         const response = await fetch(`${API_BASE_URL}${endpoint}`, {
             headers: {
                 'Authorization': `Bearer ${token}`,
                 'Content-Type': 'application/json',
             },
         });
+
+        console.log('Response status:', response.status);
+
         if (!response.ok) {
+            const errorText = await response.text();
+            console.log('Error response:', errorText);
             throw new Error(`HTTP error! status: ${response.status}`);
         }
         return response.json();
     },
 
     post: async (endpoint: string, data?: any) => {
-        const token = localStorage.getItem('token');
+        const token = localStorage.getItem('accessToken');
         const response = await fetch(`${API_BASE_URL}${endpoint}`, {
             method: 'POST',
             headers: {
@@ -159,7 +167,17 @@ const AdminDashboard = () => {
                 setLoading(true);
 
                 // Check if user is authenticated
-                const token = localStorage.getItem('token');
+                const token = localStorage.getItem('accessToken');
+                console.log('Checking authentication...');
+                console.log('Token from localStorage:', token ? `${token.substring(0, 20)}...` : 'No token found');
+                console.log('All localStorage keys:', Object.keys(localStorage));
+                console.log('localStorage contents:');
+                for (let i = 0; i < localStorage.length; i++) {
+                    const key = localStorage.key(i);
+                    const value = localStorage.getItem(key);
+                    console.log(`${key}:`, value ? `${value.substring(0, 30)}...` : value);
+                }
+
                 if (!token) {
                     setError('Please log in to access the admin dashboard');
                     setLoading(false);
@@ -178,21 +196,14 @@ const AdminDashboard = () => {
                     }
                 } catch (authError) {
                     console.error('Auth check failed:', authError);
-                    console.log('TEMPORARY: Bypassing auth check for debugging');
-                    // setError('Authentication failed. Please log in again.');
-                    // setLoading(false);
-                    // return;
+                    setError('Authentication failed. Please log in again.');
+                    setLoading(false);
+                    return;
                 }
 
-                // Skip API calls for now and use mock data to test the UI
-                console.log('Using mock data for testing...');
-                // Mock verification stats
-                const verificationStats = {
-                    totalVerifications: 15,
-                    pendingVerifications: 5,
-                    verifiedCount: 8,
-                    rejectedCount: 2
-                };
+                // Fetch verification stats
+                const verificationStats = await api.get('/verifications/stats/overview');
+                console.log('Verification stats:', verificationStats);
 
                 setStats({
                     totalUsers: verificationStats.totalVerifications || 0,
@@ -201,48 +212,10 @@ const AdminDashboard = () => {
                     rejectedCount: verificationStats.rejectedCount || 0
                 });
 
-                // Mock pending verifications for testing
-                console.log('Setting mock verification data...');
-                const mockVerifications = [
-                    {
-                        id: 1,
-                        role: 'Teacher',
-                        status: 'pending',
-                        submissionDate: '2025-08-28T10:30:00Z',
-                        user: {
-                            name: 'John Smith',
-                            email: 'john.smith@example.com',
-                            department: 'Mathematics',
-                            employeeId: 'EMP002'
-                        }
-                    },
-                    {
-                        id: 2,
-                        role: 'Staff',
-                        status: 'pending',
-                        submissionDate: '2025-08-27T14:15:00Z',
-                        user: {
-                            name: 'Sarah Johnson',
-                            email: 'sarah.johnson@example.com',
-                            department: 'English',
-                            employeeId: 'EMP003'
-                        }
-                    },
-                    {
-                        id: 3,
-                        role: 'Student',
-                        status: 'pending',
-                        submissionDate: '2025-08-26T09:45:00Z',
-                        user: {
-                            name: 'Mike Chen',
-                            email: 'mike.chen@example.com',
-                            department: 'IT',
-                            studentId: 'STU001'
-                        }
-                    }
-                ];
-                setVerificationQueue(mockVerifications);
-                console.log('Verification queue set:', mockVerifications);
+                // Fetch pending verifications
+                const verifications = await api.get('/verifications?status=pending&limit=10');
+                console.log('Pending verifications:', verifications);
+                setVerificationQueue(verifications.data || []);
 
                 // Mock data for leave requests and recent activity
                 setLeaveRequests([
@@ -337,21 +310,23 @@ const AdminDashboard = () => {
     // Handle verification approval
     const handleApproveVerification = async (verificationId: number) => {
         try {
-            // For now, use mock approval
             console.log('Approving verification:', verificationId);
-            // Remove from queue (simulate approval)
+
+            await api.post(`/verifications/approve/${verificationId}`, {
+                comments: 'Approved by admin'
+            });
+
+            // Remove from queue
             setVerificationQueue(prev => prev.filter(v => v.id !== verificationId));
+
             // Update stats
             setStats(prev => ({
                 ...prev,
                 pendingVerifications: prev.pendingVerifications - 1,
                 verifiedCount: prev.verifiedCount + 1
             }));
+
             alert('Verification approved successfully!');
-            // TODO: Uncomment when backend is working
-            // await api.post(`/verifications/approve/${verificationId}`, {
-            //     comments: 'Approved by admin'
-            // });
         } catch (err) {
             console.error('Error approving verification:', err);
             alert('Failed to approve verification');
@@ -362,22 +337,25 @@ const AdminDashboard = () => {
     const handleRejectVerification = async (verificationId: number) => {
         const reason = prompt('Please provide a reason for rejection:');
         if (!reason) return;
+
         try {
-            // For now, use mock rejection
             console.log('Rejecting verification:', verificationId, 'Reason:', reason);
-            // Remove from queue (simulate rejection)
+
+            await api.post(`/verifications/reject/${verificationId}`, {
+                comments: reason
+            });
+
+            // Remove from queue
             setVerificationQueue(prev => prev.filter(v => v.id !== verificationId));
+
             // Update stats
             setStats(prev => ({
                 ...prev,
                 pendingVerifications: prev.pendingVerifications - 1,
                 rejectedCount: prev.rejectedCount + 1
             }));
+
             alert('Verification rejected successfully!');
-            // TODO: Uncomment when backend is working
-            // await api.post(`/verifications/reject/${verificationId}`, {
-            //     comments: reason
-            // });
         } catch (err) {
             console.error('Error rejecting verification:', err);
             alert('Failed to reject verification');

@@ -27,6 +27,78 @@ router.get('/db-structure', async (req: Request, res: Response) => {
   }
 });
 
+// Create test users endpoint
+router.post('/create-test-users', async (req: Request, res: Response) => {
+  try {
+    // Create some test users with pending status
+    const testUsers = [
+      {
+        name: 'Sarah Johnson',
+        email: 'sarah.johnson@example.com',
+        password: await bcrypt.hash('password123', 10),
+        role_id: 2, // teacher
+        employee_id: 'EMP001',
+        department: 'Mathematics',
+        validation_status: 'pending'
+      },
+      {
+        name: 'Mike Chen',
+        email: 'mike.chen@example.com',
+        password: await bcrypt.hash('password123', 10),
+        role_id: 4, // staff
+        employee_id: 'STF002',
+        department: 'IT',
+        validation_status: 'pending'
+      },
+      {
+        name: 'Emily Rodriguez',
+        email: 'emily.rodriguez@example.com',
+        password: await bcrypt.hash('password123', 10),
+        role_id: 2, // teacher
+        employee_id: 'TCH003',
+        department: 'English',
+        validation_status: 'pending'
+      },
+      {
+        name: 'David Kim',
+        email: 'david.kim@example.com',
+        password: await bcrypt.hash('password123', 10),
+        role_id: 3, // student
+        employee_id: 'STU004',
+        department: 'Computer Science',
+        validation_status: 'pending'
+      }
+    ];
+
+    const createdUsers = [];
+    for (const user of testUsers) {
+      // Check if user already exists
+      const existing = await db.query('SELECT id FROM users WHERE email = ?', [user.email]);
+      
+      if (existing.rows.length === 0) {
+        const result = await db.query(`
+          INSERT INTO users (name, email, password, role_id, employee_id, department, validation_status, is_active)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        `, [user.name, user.email, user.password, user.role_id, user.employee_id, user.department, user.validation_status, true]);
+        
+        createdUsers.push({
+          id: result.rows.insertId,
+          ...user,
+          password: '[hidden]'
+        });
+      }
+    }
+
+    res.json({
+      message: 'Test users created successfully',
+      users: createdUsers
+    });
+  } catch (error) {
+    console.error('Create test users error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Create admin user endpoint
 router.post('/create-admin', async (req: Request, res: Response) => {
   try {

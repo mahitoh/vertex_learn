@@ -1,58 +1,4 @@
-// import { Toaster } from "@/components/ui/toaster";
-// import { Toaster as Sonner } from "@/components/ui/sonner";
-// import { TooltipProvider } from "@/components/ui/tooltip";
-// import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-// import { BrowserRouter, Routes, Route } from "react-router-dom";
-// import { UserProvider } from "@/contexts/UserContext";
-// import { SidebarProvider } from "@/contexts/SidebarContext";
-// import { ToastProvider } from "@/components/notifications/ToastProvider";
-// import AcademicDashboard from "@/pages/AcademicDashboard";
-// import Courses from "@/pages/courses";
-// import Attendance from "@/pages/attendance";
-// import Grades from "@/pages/grades";
-// import Schedule from "@/pages/schedule";
-// import Timetable from "@/pages/timetable";
-// import Profile from "@/pages/profile";
-// import Settings from "@/pages/settings";
-// import TeacherGrades from "@/pages/teacher/TeacherGrades";
-// import TeacherExams from "@/pages/teacher/TeacherExams";
-// import NotFound from "@/pages/not-found";
 
-// const queryClient = new QueryClient();
-
-// const App = () => (
-//   <QueryClientProvider client={queryClient}>
-//     <UserProvider>
-//       <SidebarProvider>
-//         <ToastProvider>
-//           <TooltipProvider>
-//             <Toaster />
-//             <Sonner />
-//             <BrowserRouter>
-//               <Routes>
-//                 <Route path="/" element={<AcademicDashboard />} />
-//                 <Route path="/dashboard" element={<AcademicDashboard />} />
-//                 <Route path="/courses" element={<Courses />} />
-//                 <Route path="/schedule" element={<Schedule />} />
-//                 <Route path="/attendance" element={<Attendance />} />
-//                 <Route path="/grades" element={<Grades />} />
-//                 <Route path="/timetable" element={<Timetable />} />
-//                 <Route path="/profile" element={<Profile />} />
-//                 <Route path="/settings" element={<Settings />} />
-//                 <Route path="/teacher/grades" element={<TeacherGrades />} />
-//                 <Route path="/teacher/exams" element={<TeacherExams />} />
-//                 {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-//                 <Route path="*" element={<NotFound />} />
-//               </Routes>
-//             </BrowserRouter>
-//           </TooltipProvider>
-//         </ToastProvider>
-//       </SidebarProvider>
-//     </UserProvider>
-//   </QueryClientProvider>
-// );
-
-// export default App;
 
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
@@ -60,10 +6,22 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { UserProvider, useUser } from "@/contexts/UserContext";
+import { SidebarProvider } from "@/contexts/SidebarContext";
+import { ToastProvider } from "@/components/notifications/ToastProvider";
 import Index from "./pages/Index";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import AdminDashboard from "./pages/AdminDashboard";
+import AcademicDashboard from "@/pages/AcademicDashboard";
+import Courses from "@/pages/courses";
+import Attendance from "@/pages/attendance";
+import Grades from "@/pages/grades";
+import Schedule from "@/pages/schedule";
+import Timetable from "@/pages/timetable";
+import Profile from "@/pages/profile";
+import Settings from "@/pages/settings";
+import TeacherGrades from "@/pages/teacher/TeacherGrades";
+import TeacherExams from "@/pages/teacher/TeacherExams";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -80,14 +38,19 @@ const ProtectedRoute = ({ children, requiredRole }: { children: React.ReactNode;
     return <Navigate to="/login" replace />;
   }
 
-  if (requiredRole && user.role !== requiredRole) {
-    return <Navigate to="/dashboard" replace />;
+  if (requiredRole && user.role.toLowerCase() !== requiredRole.toLowerCase()) {
+    // Redirect to appropriate dashboard based on user's actual role
+    const userRole = user.role.toLowerCase();
+    const redirectPath = userRole === 'admin' ? '/admin' :
+      userRole === 'teacher' ? '/teacher' :
+        userRole === 'student' ? '/student' : '/admin';
+    return <Navigate to={redirectPath} replace />;
   }
 
   return <>{children}</>;
 };
 
-// Dashboard Router Component
+// Dashboard Router Component - Redirects to role-specific URLs
 const DashboardRouter = () => {
   const { user } = useUser();
 
@@ -95,16 +58,16 @@ const DashboardRouter = () => {
     return <Navigate to="/login" replace />;
   }
 
-  // Route based on user role
-  switch (user.role) {
+  // Redirect to role-specific URLs
+  switch (user.role.toLowerCase()) {
     case 'admin':
-      return <AdminDashboard />;
+      return <Navigate to="/admin" replace />;
     case 'teacher':
-      return <div>Teacher Dashboard (Coming Soon)</div>;
+      return <Navigate to="/teacher" replace />;
     case 'student':
-      return <div>Student Dashboard (Coming Soon)</div>;
+      return <Navigate to="/student" replace />;
     default:
-      return <Navigate to="/" replace />;
+      return <Navigate to="/admin" replace />;
   }
 };
 
@@ -123,6 +86,61 @@ const AppRoutes = () => (
         <AdminDashboard />
       </ProtectedRoute>
     } />
+    <Route path="/teacher" element={
+      <ProtectedRoute requiredRole="teacher">
+        <AcademicDashboard />
+      </ProtectedRoute>
+    } />
+    <Route path="/student" element={
+      <ProtectedRoute requiredRole="student">
+        <AcademicDashboard />
+      </ProtectedRoute>
+    } />
+    <Route path="/courses" element={
+      <ProtectedRoute>
+        <Courses />
+      </ProtectedRoute>
+    } />
+    <Route path="/schedule" element={
+      <ProtectedRoute>
+        <Schedule />
+      </ProtectedRoute>
+    } />
+    <Route path="/attendance" element={
+      <ProtectedRoute>
+        <Attendance />
+      </ProtectedRoute>
+    } />
+    <Route path="/grades" element={
+      <ProtectedRoute>
+        <Grades />
+      </ProtectedRoute>
+    } />
+    <Route path="/timetable" element={
+      <ProtectedRoute>
+        <Timetable />
+      </ProtectedRoute>
+    } />
+    <Route path="/profile" element={
+      <ProtectedRoute>
+        <Profile />
+      </ProtectedRoute>
+    } />
+    <Route path="/settings" element={
+      <ProtectedRoute>
+        <Settings />
+      </ProtectedRoute>
+    } />
+    <Route path="/teacher/grades" element={
+      <ProtectedRoute requiredRole="teacher">
+        <TeacherGrades />
+      </ProtectedRoute>
+    } />
+    <Route path="/teacher/exams" element={
+      <ProtectedRoute requiredRole="teacher">
+        <TeacherExams />
+      </ProtectedRoute>
+    } />
     {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
     <Route path="*" element={<NotFound />} />
   </Routes>
@@ -131,13 +149,17 @@ const AppRoutes = () => (
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <UserProvider>
-      <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
-          <AppRoutes />
-        </BrowserRouter>
-      </TooltipProvider>
+      <SidebarProvider>
+        <ToastProvider>
+          <TooltipProvider>
+            <Toaster />
+            <Sonner />
+            <BrowserRouter>
+              <AppRoutes />
+            </BrowserRouter>
+          </TooltipProvider>
+        </ToastProvider>
+      </SidebarProvider>
     </UserProvider>
   </QueryClientProvider>
 );

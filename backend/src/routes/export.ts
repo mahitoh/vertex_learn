@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { prisma } from '../config/database.js';
+import { query } from '../config/database.js';
 import { requireAdmin } from '../middleware/auth.js';
 
 const router = Router();
@@ -9,23 +9,94 @@ router.get('/students', requireAdmin, async (req: Request, res: Response) => {
   try {
     const { format = 'json', includeGrades = 'false', includeAttendance = 'false' } = req.query;
     
-    const students = await prisma.user.findMany({
-      where: { role: { name: 'student' } },
-      include: {
-        role: { select: { name: true } },
-        ...(includeGrades === 'true' && {
-          grades: {
-            include: { course: { select: { name: true, code: true } } }
+    // Get students with role information
+    const studentsQuery = `
+      SELECT u.*, r.name as roleName 
+      FROM users u
+      JOIN roles r ON u.roleId = r.id
+      WHERE r.name = 'student'
+      ORDER BY u.name ASC
+    `;
+    
+    const studentsResult = await query(studentsQuery, []);
+    let students = studentsResult.rows;
+    
+    // If grades are requested, fetch them separately
+    if (includeGrades === 'true') {
+      const gradesQuery = `
+        SELECT g.*, c.name as courseName, c.code as courseCode, u.id as userId
+        FROM grades g
+        JOIN courses c ON g.courseId = c.id
+        JOIN users u ON g.userId = u.id
+        JOIN roles r ON u.roleId = r.id
+        WHERE r.name = 'student'
+      `;
+      
+      const gradesResult = await query(gradesQuery, []);
+      const gradesMap = {};
+      
+      // Group grades by userId
+      gradesResult.rows.forEach(grade => {
+        if (!gradesMap[grade.userId]) {
+          gradesMap[grade.userId] = [];
+        }
+        gradesMap[grade.userId].push({
+          ...grade,
+          course: {
+            name: grade.courseName,
+            code: grade.courseCode
           }
-        }),
-        ...(includeAttendance === 'true' && {
-          attendance: {
-            include: { course: { select: { name: true, code: true } } }
+        });
+      });
+      
+      // Add grades to each student
+      students = students.map(student => ({
+        ...student,
+        grades: gradesMap[student.id] || [],
+        role: { name: student.roleName }
+      }));
+    } else {
+      // Just add role information
+      students = students.map(student => ({
+        ...student,
+        role: { name: student.roleName }
+      }));
+    }
+    
+    // If attendance is requested, fetch it separately
+    if (includeAttendance === 'true') {
+      const attendanceQuery = `
+        SELECT a.*, c.name as courseName, c.code as courseCode, u.id as userId
+        FROM attendance a
+        JOIN courses c ON a.courseId = c.id
+        JOIN users u ON a.userId = u.id
+        JOIN roles r ON u.roleId = r.id
+        WHERE r.name = 'student'
+      `;
+      
+      const attendanceResult = await query(attendanceQuery, []);
+      const attendanceMap = {};
+      
+      // Group attendance by userId
+      attendanceResult.rows.forEach(attendance => {
+        if (!attendanceMap[attendance.userId]) {
+          attendanceMap[attendance.userId] = [];
+        }
+        attendanceMap[attendance.userId].push({
+          ...attendance,
+          course: {
+            name: attendance.courseName,
+            code: attendance.courseCode
           }
-        })
-      },
-      orderBy: { name: 'asc' }
-    });
+        });
+      });
+      
+      // Add attendance to each student
+      students = students.map(student => ({
+        ...student,
+        attendance: attendanceMap[student.id] || []
+      }));
+    }
 
     if (format === 'csv') {
       // Convert to CSV format
@@ -64,15 +135,46 @@ router.get('/courses', requireAdmin, async (req: Request, res: Response) => {
   try {
     const { format = 'json', includeEnrollments = 'false' } = req.query;
     
-    const courses = await prisma.course.findMany({
-      include: {
-        instructor: { select: { name: true, email: true } },
-        ...(includeEnrollments === 'true' && {
-          _count: { enrollments: true }
-        })
-      },
-      orderBy: { name: 'asc' }
-    });
+    // Get courses with instructor information
+    const coursesQuery = `
+      SELECT c.*, u.name as instructorName, u.email as instructorEmail
+      FROM courses c
+      JOIN users u ON c.instructorId = u.id
+      ORDER BY c.name ASC
+    `;
+    
+    const coursesResult = await query(coursesQuery, []);
+    let courses = coursesResult.rows.map(course => ({
+      ...course,
+      instructor: {
+        name: course.instructorName,
+        email: course.instructorEmail
+      }
+    }));
+    
+    // If enrollments count is requested, fetch it separately
+    if (includeEnrollments === 'true') {
+      const enrollmentsQuery = `
+        SELECT courseId, COUNT(*) as enrollmentCount
+        FROM enrollments
+        GROUP BY courseId
+      `;
+      
+      const enrollmentsResult = await query(enrollmentsQuery, []);
+      const enrollmentsMap = {};
+      
+      enrollmentsResult.rows.forEach(row => {
+        enrollmentsMap[row.courseId] = row.enrollmentCount;
+      });
+      
+      // Add enrollment counts to each course
+      courses = courses.map(course => ({
+        ...course,
+        _count: {
+          enrollments: enrollmentsMap[course.id] || 0
+        }
+      }));
+    }
 
     if (format === 'csv') {
       const csvData = courses.map(course => ({
@@ -110,18 +212,45 @@ router.get('/grades', requireAdmin, async (req: Request, res: Response) => {
   try {
     const { format = 'json', courseId, studentId } = req.query;
     
-    const where: any = {};
-    if (courseId) where.courseId = parseInt(String(courseId));
-    if (studentId) where.studentId = parseInt(String(studentId));
-
-    const grades = await prisma.grade.findMany({
-      where,
-      include: {
-        student: { select: { name: true, email: true, studentId: true } },
-        course: { select: { name: true, code: true } }
+    // Build the WHERE clause for the SQL query
+    let whereClause = '';
+    const queryParams = [];
+    
+    if (courseId) {
+      whereClause += ' AND g.courseId = ?';
+      queryParams.push(parseInt(String(courseId)));
+    }
+    
+    if (studentId) {
+      whereClause += ' AND g.userId = ?';
+      queryParams.push(parseInt(String(studentId)));
+    }
+    
+    // Get grades with student and course information
+    const gradesQuery = `
+      SELECT g.*, 
+             u.name as studentName, u.email as studentEmail, u.studentId as studentIdNumber,
+             c.name as courseName, c.code as courseCode
+      FROM grades g
+      JOIN users u ON g.userId = u.id
+      JOIN courses c ON g.courseId = c.id
+      WHERE 1=1 ${whereClause}
+      ORDER BY g.createdAt DESC
+    `;
+    
+    const gradesResult = await query(gradesQuery, queryParams);
+    const grades = gradesResult.rows.map(grade => ({
+      ...grade,
+      student: {
+        name: grade.studentName,
+        email: grade.studentEmail,
+        studentId: grade.studentIdNumber
       },
-      orderBy: { createdAt: 'desc' }
-    });
+      course: {
+        name: grade.courseName,
+        code: grade.courseCode
+      }
+    }));
 
     if (format === 'csv') {
       const csvData = grades.map(grade => ({
@@ -164,29 +293,53 @@ router.get('/financial', requireAdmin, async (req: Request, res: Response) => {
     let data: any = {};
 
     if (type === 'all' || type === 'invoices') {
-      const invoices = await prisma.invoice.findMany({
-        include: { student: { select: { name: true, email: true } } },
-        orderBy: { createdAt: 'desc' }
-      });
-      data.invoices = invoices;
+      const invoicesQuery = `
+        SELECT i.*, u.name as studentName, u.email as studentEmail
+        FROM invoices i
+        JOIN users u ON i.userId = u.id
+        ORDER BY i.createdAt DESC
+      `;
+      
+      const invoicesResult = await query(invoicesQuery, []);
+      data.invoices = invoicesResult.rows.map(invoice => ({
+        ...invoice,
+        student: {
+          name: invoice.studentName,
+          email: invoice.studentEmail
+        }
+      }));
     }
 
     if (type === 'all' || type === 'payments') {
-      const payments = await prisma.payment.findMany({
-        include: { 
-          student: { select: { name: true, email: true } },
-          invoice: { select: { invoiceNumber: true } }
+      const paymentsQuery = `
+        SELECT p.*, u.name as studentName, u.email as studentEmail, i.invoiceNumber
+        FROM payments p
+        JOIN users u ON p.userId = u.id
+        JOIN invoices i ON p.invoiceId = i.id
+        ORDER BY p.paymentDate DESC
+      `;
+      
+      const paymentsResult = await query(paymentsQuery, []);
+      data.payments = paymentsResult.rows.map(payment => ({
+        ...payment,
+        student: {
+          name: payment.studentName,
+          email: payment.studentEmail
         },
-        orderBy: { paymentDate: 'desc' }
-      });
-      data.payments = payments;
+        invoice: {
+          invoiceNumber: payment.invoiceNumber
+        }
+      }));
     }
 
     if (type === 'all' || type === 'expenses') {
-      const expenses = await prisma.expense.findMany({
-        orderBy: { date: 'desc' }
-      });
-      data.expenses = expenses;
+      const expensesQuery = `
+        SELECT * FROM expenses
+        ORDER BY date DESC
+      `;
+      
+      const expensesResult = await query(expensesQuery, []);
+      data.expenses = expensesResult.rows;
     }
 
     if (format === 'csv') {

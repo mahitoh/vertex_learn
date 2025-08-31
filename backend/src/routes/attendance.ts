@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { prisma } from '../config/database.js';
+import { query } from '../config/database.js';
 import { validatePagination, validateId } from '../middleware/validation.js';
 import { requireTeacherOrAdmin } from '../middleware/auth.js';
 import { AuthenticatedRequest } from '../middleware/auth.js';
@@ -19,30 +19,60 @@ router.get('/', validatePagination, requireTeacherOrAdmin, async (req: Request, 
       ...(status ? { status: { equals: String(status) } } : {})
     };
 
-    const attendance = await prisma.attendance.findMany({
-      where,
-      skip,
-      take: parseInt(String(limit)),
-      include: {
-        student: {
-          select: {
-            id: true,
-            name: true,
-            email: true
-          }
-        },
-        course: {
-          select: {
-            id: true,
-            name: true,
-            code: true
-          }
-        }
-      },
-      orderBy: { date: 'desc' }
-    });
+    let queryStr = `
+      SELECT a.*, s.id as student_id, s.name as student_name, s.email as student_email,
+             c.id as course_id, c.name as course_name, c.code as course_code
+      FROM attendance a
+      LEFT JOIN students s ON a.student_id = s.id
+      LEFT JOIN courses c ON a.course_id = c.id
+      WHERE 1=1
+    `;
+    const queryParams = [];
 
-    const total = await prisma.attendance.count({ where });
+    if (studentId) {
+      queryStr += ' AND a.student_id = ?';
+      queryParams.push(parseInt(String(studentId)));
+    }
+    if (courseId) {
+      queryStr += ' AND a.course_id = ?';
+      queryParams.push(parseInt(String(courseId)));
+    }
+    if (date) {
+      queryStr += ' AND DATE(a.date) = DATE(?)';
+      queryParams.push(String(date));
+    }
+    if (status) {
+      queryStr += ' AND a.status = ?';
+      queryParams.push(String(status));
+    }
+
+    queryStr += ' ORDER BY a.date DESC LIMIT ? OFFSET ?';
+    queryParams.push(parseInt(String(limit)), skip);
+
+    const { rows: attendance } = await query(queryStr, queryParams);
+
+    // Get total count
+    let countQuery = 'SELECT COUNT(*) as total FROM attendance a WHERE 1=1';
+    const countParams = [];
+
+    if (studentId) {
+      countQuery += ' AND a.student_id = ?';
+      countParams.push(parseInt(String(studentId)));
+    }
+    if (courseId) {
+      countQuery += ' AND a.course_id = ?';
+      countParams.push(parseInt(String(courseId)));
+    }
+    if (date) {
+      countQuery += ' AND DATE(a.date) = DATE(?)';
+      countParams.push(String(date));
+    }
+    if (status) {
+      countQuery += ' AND a.status = ?';
+      countParams.push(String(status));
+    }
+
+    const { rows: [{ total }] } = await query(countQuery, countParams);
 
     res.json({
       data: attendance,

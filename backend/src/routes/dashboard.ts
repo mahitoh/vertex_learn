@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { prisma } from '../config/database.js';
+import { query } from '../config/database.js';
 import { authenticateJWT } from '../middleware/auth.js';
 
 const router = Router();
@@ -7,52 +7,48 @@ const router = Router();
 // Get main dashboard data
 router.get('/', authenticateJWT, async (req: Request, res: Response) => {
   try {
-    const [totalStudents, totalTeachers, totalCourses, totalRevenue] = await Promise.all([
-      prisma.user.count({ where: { role: { name: 'student' } } }),
-      prisma.user.count({ where: { role: { name: 'teacher' } } }),
-      prisma.course.count({ where: { isActive: true } }),
-      prisma.payment.aggregate({ _sum: { amount: true } })
+    const [totalStudentsResult, totalTeachersResult, totalCoursesResult, totalRevenueResult] = await Promise.all([
+      query('SELECT COUNT(*) as count FROM users u JOIN roles r ON u.role_id = r.id WHERE r.name = "student"'),
+      query('SELECT COUNT(*) as count FROM users u JOIN roles r ON u.role_id = r.id WHERE r.name = "teacher"'),
+      query('SELECT COUNT(*) as count FROM courses WHERE is_active = true'),
+      query('SELECT SUM(amount) as total FROM payments')
     ]);
 
-    const recentActivities = await prisma.notification.findMany({
-      take: 5,
-      orderBy: { createdAt: 'desc' },
-      include: {
-        recipient: { select: { name: true } },
-        sender: { select: { name: true } }
-      }
-    });
+    const recentActivitiesResult = await query(`
+      SELECT n.*, 
+             r.name as recipient_name,
+             s.name as sender_name
+      FROM notifications n 
+      LEFT JOIN users r ON n.recipient_id = r.id 
+      LEFT JOIN users s ON n.sender_id = s.id 
+      ORDER BY n.created_at DESC 
+      LIMIT 5
+    `);
 
-    const upcomingExams = await prisma.exam.findMany({
-      where: { 
-        examDate: { gte: new Date() },
-        isPublished: true 
-      },
-      take: 5,
-      orderBy: { examDate: 'asc' },
-      include: { course: { select: { name: true, code: true } } }
-    });
+    const upcomingExamsResult = await query(`
+      SELECT e.*, c.name as course_name, c.code as course_code
+      FROM exams e 
+      JOIN courses c ON e.course_id = c.id 
+      WHERE e.exam_date >= NOW() AND e.is_published = true 
+      ORDER BY e.exam_date ASC 
+      LIMIT 5
+    `);
 
-    const pendingLeaves = await prisma.leave.count({
-      where: { status: 'pending' }
-    });
-
-    const pendingVerifications = await prisma.verification.count({
-      where: { status: 'pending' }
-    });
+    const pendingLeavesResult = await query('SELECT COUNT(*) as count FROM leaves WHERE status = "pending"');
+    const pendingVerificationsResult = await query('SELECT COUNT(*) as count FROM verifications WHERE status = "pending"');
 
     res.json({
       overview: {
-        totalStudents,
-        totalTeachers,
-        totalCourses,
-        totalRevenue: totalRevenue._sum.amount || 0
+        totalStudents: totalStudentsResult.rows[0].count,
+        totalTeachers: totalTeachersResult.rows[0].count,
+        totalCourses: totalCoursesResult.rows[0].count,
+        totalRevenue: totalRevenueResult.rows[0].total || 0
       },
-      recentActivities,
-      upcomingExams,
+      recentActivities: recentActivitiesResult.rows,
+      upcomingExams: upcomingExamsResult.rows,
       pendingItems: {
-        leaves: pendingLeaves,
-        verifications: pendingVerifications
+        leaves: pendingLeavesResult.rows[0].count,
+        verifications: pendingVerificationsResult.rows[0].count
       }
     });
 
@@ -68,34 +64,43 @@ router.get('/student', authenticateJWT, async (req: Request, res: Response) => {
     const userId = (req as any).user?.id;
     if (!userId) return res.status(401).json({ error: 'User not authenticated' });
 
-    const [enrollments, grades, attendance, upcomingExams] = await Promise.all([
-      prisma.enrollment.findMany({
-        where: { studentId: userId, status: 'active' },
-        include: { course: { select: { name: true, code: true, credits: true } } }
-      }),
-      prisma.grade.findMany({
-        where: { studentId: userId },
-        include: { course: { select: { name: true, code: true } } },
-        orderBy: { createdAt: 'desc' },
-        take: 10
-      }),
-      prisma.attendance.findMany({
-        where: { studentId: userId },
-        include: { course: { select: { name: true, code: true } } },
-        orderBy: { date: 'desc' },
-        take: 10
-      }),
-      prisma.exam.findMany({
-        where: { 
-          examDate: { gte: new Date() },
-          isPublished: true,
-          course: { enrollments: { some: { studentId: userId, status: 'active' } } }
-        },
-        include: { course: { select: { name: true, code: true } } },
-        orderBy: { examDate: 'asc' },
-        take: 5
-      })
+    const [enrollmentsResult, gradesResult, attendanceResult, upcomingExamsResult] = await Promise.all([
+      query(`
+        SELECT e.*, c.name as course_name, c.code as course_code, c.credits
+        FROM enrollments e 
+        JOIN courses c ON e.course_id = c.id 
+        WHERE e.student_id = ? AND e.status = 'active'
+      `, [userId]),
+      query(`
+        SELECT g.*, c.name as course_name, c.code as course_code
+        FROM grades g 
+        JOIN courses c ON g.course_id = c.id 
+        WHERE g.student_id = ? 
+        ORDER BY g.created_at DESC 
+        LIMIT 10
+      `, [userId]),
+      query(`
+        SELECT a.*, c.name as course_name, c.code as course_code
+        FROM attendance a 
+        JOIN courses c ON a.course_id = c.id 
+        WHERE a.student_id = ? 
+        ORDER BY a.date DESC 
+        LIMIT 10
+      `, [userId]),
+      query(`
+        SELECT e.*, c.name as course_name, c.code as course_code
+        FROM exams e 
+        JOIN courses c ON e.course_id = c.id 
+        JOIN enrollments en ON c.id = en.course_id 
+        WHERE e.exam_date >= NOW() AND e.is_published = true 
+        AND en.student_id = ? AND en.status = 'active'
+        ORDER BY e.exam_date ASC 
+        LIMIT 5
+      `, [userId])
     ]);
+
+    const attendance = attendanceResult.rows;
+    const grades = gradesResult.rows;
 
     const attendancePercentage = attendance.length > 0 
       ? (attendance.filter((a: any) => a.status === 'present').length / attendance.length) * 100 
@@ -106,12 +111,12 @@ router.get('/student', authenticateJWT, async (req: Request, res: Response) => {
       : 0;
 
     res.json({
-      enrollments,
+      enrollments: enrollmentsResult.rows,
       grades,
       attendance,
-      upcomingExams,
+      upcomingExams: upcomingExamsResult.rows,
       summary: {
-        totalCourses: enrollments.length,
+        totalCourses: enrollmentsResult.rows.length,
         averageGrade,
         attendancePercentage
       }
@@ -129,42 +134,44 @@ router.get('/teacher', authenticateJWT, async (req: Request, res: Response) => {
     const userId = (req as any).user?.id;
     if (!userId) return res.status(401).json({ error: 'User not authenticated' });
 
-    const [courses, students, recentGrades, upcomingExams] = await Promise.all([
-      prisma.course.findMany({
-        where: { instructorId: userId, isActive: true },
-        include: { _count: { enrollments: true } }
-      }),
-      prisma.enrollment.count({
-        where: { 
-          course: { instructorId: userId },
-          status: 'active'
-        }
-      }),
-      prisma.grade.findMany({
-        where: { course: { instructorId: userId } },
-        include: { 
-          student: { select: { name: true } },
-          course: { select: { name: true } }
-        },
-        orderBy: { createdAt: 'desc' },
-        take: 10
-      }),
-      prisma.exam.findMany({
-        where: { 
-          course: { instructorId: userId },
-          examDate: { gte: new Date() }
-        },
-        include: { course: { select: { name: true, code: true } } },
-        orderBy: { examDate: 'asc' },
-        take: 5
-      })
+    const [coursesResult, studentsResult, recentGradesResult, upcomingExamsResult] = await Promise.all([
+      query(`
+        SELECT c.*, COUNT(e.id) as enrollment_count
+        FROM courses c 
+        LEFT JOIN enrollments e ON c.id = e.course_id AND e.status = 'active'
+        WHERE c.instructor_id = ? AND c.is_active = true
+        GROUP BY c.id
+      `, [userId]),
+      query(`
+        SELECT COUNT(*) as count 
+        FROM enrollments e 
+        JOIN courses c ON e.course_id = c.id 
+        WHERE c.instructor_id = ? AND e.status = 'active'
+      `, [userId]),
+      query(`
+        SELECT g.*, s.name as student_name, c.name as course_name
+        FROM grades g 
+        JOIN students s ON g.student_id = s.id 
+        JOIN courses c ON g.course_id = c.id 
+        WHERE c.instructor_id = ? 
+        ORDER BY g.created_at DESC 
+        LIMIT 10
+      `, [userId]),
+      query(`
+        SELECT e.*, c.name as course_name, c.code as course_code
+        FROM exams e 
+        JOIN courses c ON e.course_id = c.id 
+        WHERE c.instructor_id = ? AND e.exam_date >= NOW()
+        ORDER BY e.exam_date ASC 
+        LIMIT 5
+      `, [userId])
     ]);
 
     res.json({
-      courses,
-      totalStudents: students,
-      recentGrades,
-      upcomingExams
+      courses: coursesResult.rows,
+      totalStudents: studentsResult.rows[0].count,
+      recentGrades: recentGradesResult.rows,
+      upcomingExams: upcomingExamsResult.rows
     });
 
   } catch (error) {

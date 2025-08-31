@@ -1,10 +1,9 @@
 import express, { Request, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
+import { query } from '../config/database.js';
 import { authenticateJWT, requireAdmin } from '../middleware/auth.js';
 import { validateExpense, validatePagination, handleValidationErrors } from '../middleware/validation.js';
 
 const router = express.Router();
-const prisma = new PrismaClient();
 
 // GET /api/expenses - List expenses with filters and pagination
 router.get('/', authenticateJWT, requireAdmin, validatePagination, handleValidationErrors, async (req: Request, res: Response) => {

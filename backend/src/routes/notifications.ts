@@ -1,10 +1,9 @@
 import express from 'express';
-import { PrismaClient } from '@prisma/client';
+import { query } from '../config/database.js';
 import { authenticateJWT } from '../middleware/auth.js';
 import { validateNotification, validatePagination, handleValidationErrors } from '../middleware/validation.js';
 
 const router = express.Router();
-const prisma = new PrismaClient();
 
 // GET /api/notifications - List notifications with filters and pagination
 router.get('/', authenticateJWT, validatePagination, handleValidationErrors, async (req, res) => {

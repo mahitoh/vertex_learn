@@ -1,10 +1,9 @@
-import express from 'express';
-import { PrismaClient } from '@prisma/client';
+import express, { Request, Response } from 'express';
+import { query } from '../config/database.js';
 import { authenticateJWT, requireAdmin } from '../middleware/auth.js';
 import { validateSetting, validatePagination, handleValidationErrors } from '../middleware/validation.js';
 
 const router = express.Router();
-const prisma = new PrismaClient();
 
 // GET /api/settings - List all settings
 router.get('/', authenticateJWT, requireAdmin, validatePagination, handleValidationErrors, async (req, res) => {
@@ -12,20 +11,27 @@ router.get('/', authenticateJWT, requireAdmin, validatePagination, handleValidat
     const { key, page = 1, limit = 50 } = req.query;
     const skip = (Number(page) - 1) * Number(limit);
 
-    const where: any = {};
+    let whereClause = 'WHERE 1=1';
+    const values = [];
+
     if (key) {
-      where.key = { contains: key as string, mode: 'insensitive' };
+      whereClause += ' AND key_name LIKE ?';
+      values.push(`%${key}%`);
     }
 
-    const [settings, total] = await Promise.all([
-      prisma.setting.findMany({
-        where,
-        skip,
-        take: Number(limit),
-        orderBy: { key: 'asc' }
-      }),
-      prisma.setting.count({ where })
+    const [settingsResult, totalResult] = await Promise.all([
+      query(
+        `SELECT * FROM settings ${whereClause} ORDER BY key_name ASC LIMIT ? OFFSET ?`,
+        [...values, Number(limit), skip]
+      ),
+      query(
+        `SELECT COUNT(*) as total FROM settings ${whereClause}`,
+        values
+      )
     ]);
+
+    const settings = settingsResult.rows as any[];
+    const total = (totalResult.rows as any[])[0].total;
 
     res.json({
       success: true,
@@ -47,15 +53,16 @@ router.get('/', authenticateJWT, requireAdmin, validatePagination, handleValidat
 router.get('/:key', authenticateJWT, requireAdmin, async (req, res) => {
   try {
     const { key } = req.params;
-    const setting = await prisma.setting.findUnique({
-      where: { key }
-    });
+    const settingResult = await query(
+      'SELECT * FROM settings WHERE key_name = ?',
+      [key]
+    );
 
-    if (!setting) {
+    if ((settingResult.rows as any[]).length === 0) {
       return res.status(404).json({ success: false, message: 'Setting not found' });
     }
 
-    res.json({ success: true, data: setting });
+    res.json({ success: true, data: (settingResult.rows as any[])[0] });
   } catch (error) {
     console.error('Error fetching setting:', error);
     res.status(500).json({ success: false, message: 'Internal server error' });
@@ -68,19 +75,26 @@ router.post('/', authenticateJWT, requireAdmin, validateSetting, handleValidatio
     const { key, value } = req.body;
 
     // Check if setting already exists
-    const existingSetting = await prisma.setting.findUnique({
-      where: { key }
-    });
+    const existingSettingResult = await query(
+      'SELECT id FROM settings WHERE key_name = ?',
+      [key]
+    );
 
-    if (existingSetting) {
+    if ((existingSettingResult.rows as any[]).length > 0) {
       return res.status(409).json({ success: false, message: 'Setting already exists' });
     }
 
-    const setting = await prisma.setting.create({
-      data: { key, value }
-    });
+    const settingResult = await query(
+      'INSERT INTO settings (key_name, value, created_at, updated_at) VALUES (?, ?, NOW(), NOW())',
+      [key, value]
+    );
 
-    res.status(201).json({ success: true, data: setting });
+    const newSettingResult = await query(
+      'SELECT * FROM settings WHERE id = ?',
+      [(settingResult.rows as any).insertId]
+    );
+
+    res.status(201).json({ success: true, data: (newSettingResult.rows as any[])[0] });
   } catch (error) {
     console.error('Error creating setting:', error);
     res.status(500).json({ success: false, message: 'Internal server error' });
@@ -93,18 +107,26 @@ router.put('/:key', authenticateJWT, requireAdmin, validateSetting, handleValida
     const { key } = req.params;
     const { value } = req.body;
 
-    const existingSetting = await prisma.setting.findUnique({
-      where: { key }
-    });
+    const existingSettingResult = await query(
+      'SELECT * FROM settings WHERE `key` = ?',
+      [key]
+    );
 
-    if (!existingSetting) {
+    if (existingSettingResult.rows.length === 0) {
       return res.status(404).json({ success: false, message: 'Setting not found' });
     }
 
-    const setting = await prisma.setting.update({
-      where: { key },
-      data: { value }
-    });
+    await query(
+      'UPDATE settings SET value = ?, updated_at = NOW() WHERE `key` = ?',
+      [value, key]
+    );
+    
+    const settingResult = await query(
+      'SELECT * FROM settings WHERE `key` = ?',
+      [key]
+    );
+    
+    const setting = settingResult.rows[0];
 
     res.json({ success: true, data: setting });
   } catch (error) {
@@ -118,17 +140,19 @@ router.delete('/:key', authenticateJWT, requireAdmin, async (req, res) => {
   try {
     const { key } = req.params;
 
-    const existingSetting = await prisma.setting.findUnique({
-      where: { key }
-    });
+    const existingSettingResult = await query(
+      'SELECT * FROM settings WHERE `key` = ?',
+      [key]
+    );
 
-    if (!existingSetting) {
+    if (existingSettingResult.rows.length === 0) {
       return res.status(404).json({ success: false, message: 'Setting not found' });
     }
 
-    await prisma.setting.delete({
-      where: { key }
-    });
+    await query(
+      'DELETE FROM settings WHERE `key` = ?',
+      [key]
+    );
 
     res.json({ success: true, message: 'Setting deleted successfully' });
   } catch (error) {

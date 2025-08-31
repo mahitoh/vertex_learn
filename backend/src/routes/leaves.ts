@@ -1,5 +1,4 @@
 import { Router, Request, Response } from 'express';
-import { prisma } from '../config/database.js';
 import { validateLeave, validatePagination, validateId } from '../middleware/validation.js';
 import { requireStaffOrAdmin } from '../middleware/auth.js';
 import { AuthenticatedRequest } from '../middleware/auth.js';

@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { prisma } from '../config/database.js';
+import { query } from '../config/database.js';
 import { requireAdmin } from '../middleware/auth.js';
 
 const router = Router();
@@ -7,23 +7,25 @@ const router = Router();
 // Get academic overview report
 router.get('/academic/overview', requireAdmin, async (req: Request, res: Response) => {
   try {
-    const [totalStudents, totalCourses, totalTeachers, totalExams] = await Promise.all([
-      prisma.user.count({ where: { role: { name: 'student' } } }),
-      prisma.course.count({ where: { isActive: true } }),
-      prisma.user.count({ where: { role: { name: 'teacher' } } }),
-      prisma.exam.count()
+    const [studentsResult, coursesResult, teachersResult, examsResult] = await Promise.all([
+      query('SELECT COUNT(*) as count FROM users u JOIN roles r ON u.role_id = r.id WHERE r.name = ?', ['student']),
+      query('SELECT COUNT(*) as count FROM courses WHERE is_active = 1'),
+      query('SELECT COUNT(*) as count FROM users u JOIN roles r ON u.role_id = r.id WHERE r.name = ?', ['teacher']),
+      query('SELECT COUNT(*) as count FROM exams')
     ]);
 
-    const courseStats = await prisma.course.groupBy({
-      by: ['department'],
-      _count: { id: true }
-    });
+    const courseStatsResult = await query(
+      'SELECT department, COUNT(*) as count FROM courses GROUP BY department'
+    );
 
-    const gradeStats = await prisma.grade.groupBy({
-      by: ['courseId'],
-      _avg: { percentage: true },
-      _count: { id: true }
-    });
+    const gradeStatsResult = await query(
+      'SELECT course_id, AVG(percentage) as avg_percentage, COUNT(*) as count FROM grades GROUP BY course_id'
+    );
+
+    const totalStudents = (studentsResult.rows as any[])[0].count;
+    const totalCourses = (coursesResult.rows as any[])[0].count;
+    const totalTeachers = (teachersResult.rows as any[])[0].count;
+    const totalExams = (examsResult.rows as any[])[0].count;
 
     res.json({
       overview: {
@@ -32,8 +34,8 @@ router.get('/academic/overview', requireAdmin, async (req: Request, res: Respons
         totalTeachers,
         totalExams
       },
-      courseStats,
-      gradeStats
+      courseStats: courseStatsResult.rows,
+      gradeStats: gradeStatsResult.rows
     });
 
   } catch (error) {
@@ -45,28 +47,29 @@ router.get('/academic/overview', requireAdmin, async (req: Request, res: Respons
 // Get financial overview report
 router.get('/financial/overview', requireAdmin, async (req: Request, res: Response) => {
   try {
-    const [totalInvoices, totalPayments, totalExpenses, totalCampaigns] = await Promise.all([
-      prisma.invoice.count(),
-      prisma.payment.count(),
-      prisma.expense.count(),
-      prisma.campaign.count()
+    const [invoicesResult, paymentsResult, expensesResult, campaignsResult] = await Promise.all([
+      query('SELECT COUNT(*) as count FROM invoices'),
+      query('SELECT COUNT(*) as count FROM payments'),
+      query('SELECT COUNT(*) as count FROM expenses'),
+      query('SELECT COUNT(*) as count FROM campaigns')
     ]);
 
-    const revenueStats = await prisma.payment.aggregate({
-      _sum: { amount: true },
-      _avg: { amount: true }
-    });
+    const revenueStatsResult = await query(
+      'SELECT SUM(amount) as total, AVG(amount) as average FROM payments'
+    );
 
-    const expenseStats = await prisma.expense.aggregate({
-      _sum: { amount: true },
-      _avg: { amount: true }
-    });
+    const expenseStatsResult = await query(
+      'SELECT SUM(amount) as total, AVG(amount) as average FROM expenses'
+    );
 
-    const campaignROI = await prisma.campaign.groupBy({
-      by: ['name'],
-      _sum: { roi: true },
-      _avg: { roi: true }
-    });
+    const campaignROIResult = await query(
+      'SELECT name, SUM(roi) as total_roi, AVG(roi) as avg_roi FROM campaigns GROUP BY name'
+    );
+
+    const totalInvoices = (invoicesResult.rows as any[])[0].count;
+    const totalPayments = (paymentsResult.rows as any[])[0].count;
+    const totalExpenses = (expensesResult.rows as any[])[0].count;
+    const totalCampaigns = (campaignsResult.rows as any[])[0].count;
 
     res.json({
       overview: {
@@ -76,14 +79,14 @@ router.get('/financial/overview', requireAdmin, async (req: Request, res: Respon
         totalCampaigns
       },
       revenue: {
-        total: revenueStats._sum.amount || 0,
-        average: revenueStats._avg.amount || 0
+        total: (revenueStatsResult.rows as any[])[0].total || 0,
+        average: (revenueStatsResult.rows as any[])[0].average || 0
       },
       expenses: {
-        total: expenseStats._sum.amount || 0,
-        average: expenseStats._avg.amount || 0
+        total: (expenseStatsResult.rows as any[])[0].total || 0,
+        average: (expenseStatsResult.rows as any[])[0].average || 0
       },
-      campaignROI
+      campaignROI: campaignROIResult.rows
     });
 
   } catch (error) {

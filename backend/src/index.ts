@@ -148,15 +148,15 @@ app.use('*', (req, res) => {
 app.use((error: any, req: Request, res: Response, next: NextFunction) => {
   console.error('Global error handler:', error);
 
-  // Prisma errors
-  if (error.code === 'P2002') {
+  // MySQL errors
+  if (error.code === 'ER_DUP_ENTRY') {
     return res.status(400).json({
       error: 'Duplicate entry',
       message: 'A record with this information already exists',
     });
   }
 
-  if (error.code === 'P2025') {
+  if (error.code === 'ER_NO_REFERENCED_ROW_2') {
     return res.status(404).json({
       error: 'Record not found',
       message: 'The requested record does not exist',

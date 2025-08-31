@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { prisma } from '../config/database.js';
+import { query } from '../config/database.js';
 import { validatePagination, validateId } from '../middleware/validation.js';
 import { requireAdmin } from '../middleware/auth.js';
 import { AuthenticatedRequest } from '../middleware/auth.js';
@@ -21,21 +21,35 @@ router.get('/', validatePagination, requireAdmin, async (req: Request, res: Resp
       } : {})
     };
 
-    const roles = await prisma.role.findMany({
-      where,
-      skip,
-      take: parseInt(String(limit)),
-      include: {
-        _count: {
-          select: {
-            users: true
-          }
-        }
-      },
-      orderBy: { name: 'asc' }
-    });
+    // Build WHERE clause for search
+    let whereClause = '';
+    let queryParams = [];
+    
+    if (search) {
+      whereClause = 'WHERE r.name LIKE ? OR r.description LIKE ?';
+      queryParams.push(`%${search}%`, `%${search}%`);
+    }
+    
+    // Get roles with user count
+    const rolesResult = await query(
+      `SELECT r.*, COUNT(u.id) as user_count 
+       FROM roles r 
+       LEFT JOIN users u ON r.id = u.role_id 
+       ${whereClause}
+       GROUP BY r.id 
+       ORDER BY r.name ASC 
+       LIMIT ? OFFSET ?`,
+      [...queryParams, parseInt(String(limit)), skip]
+    );
 
-    const total = await prisma.role.count({ where });
+    // Get total count
+    const countResult = await query(
+      `SELECT COUNT(DISTINCT r.id) as total FROM roles r ${whereClause}`,
+      queryParams
+    );
+
+    const roles = rolesResult.rows;
+    const total = countResult.rows[0].total;
 
     res.json({
       data: roles,
@@ -59,31 +73,26 @@ router.get('/:id', validateId, requireAdmin, async (req: Request, res: Response)
     const { id } = req.params;
     if (!id) return res.status(400).json({ error: 'ID is required' });
 
-    const role = await prisma.role.findUnique({
-      where: { id: parseInt(String(id)) },
-      include: {
-        users: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            email: true,
-            department: true
-          }
-        },
-        _count: {
-          select: {
-            users: true
-          }
-        }
-      }
-    });
-
-    if (!role) {
-      return res.status(404).json({
-        error: 'Role not found'
-      });
+    // Get role with users
+    const roleResult = await query(
+      'SELECT * FROM roles WHERE id = ?',
+      [parseInt(String(id))]
+    );
+    
+    if (roleResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Role not found' });
     }
+    
+    const role = roleResult.rows[0];
+    
+    // Get users for this role
+    const usersResult = await query(
+      'SELECT id, first_name, last_name, email, department FROM users WHERE role_id = ?',
+      [parseInt(String(id))]
+    );
+    
+    role.users = usersResult.rows;
+    role._count = { users: usersResult.rows.length };
 
     res.json({ role });
 
@@ -107,22 +116,28 @@ router.post('/', requireAdmin, async (req, res) => {
     }
 
     // Check if role already exists
-    const existingRole = await prisma.role.findUnique({
-      where: { name }
-    });
+    const existingRoleResult = await query(
+      'SELECT id FROM roles WHERE name = ?',
+      [name]
+    );
 
-    if (existingRole) {
+    if (existingRoleResult.rows.length > 0) {
       return res.status(400).json({
         error: 'Role with this name already exists'
       });
     }
 
-    const role = await prisma.role.create({
-      data: {
-        name,
-        permissions
-      }
-    });
+    const createResult = await query(
+      'INSERT INTO roles (name, permissions, created_at, updated_at) VALUES (?, ?, NOW(), NOW())',
+      [name, JSON.stringify(permissions)]
+    );
+    
+    const roleResult = await query(
+      'SELECT * FROM roles WHERE id = ?',
+      [createResult.rows.insertId]
+    );
+    
+    const role = roleResult.rows[0];
 
     res.status(201).json({
       message: 'Role created successfully',
@@ -146,48 +161,74 @@ router.put('/:id', validateId, requireAdmin, async (req: Request, res: Response)
     const { name, description, permissions, isActive } = req.body;
 
     // Check if role exists
-    const existingRole = await prisma.role.findUnique({
-      where: { id: parseInt(String(id)) }
-    });
+    const existingRoleResult = await query(
+      'SELECT * FROM roles WHERE id = ?',
+      [parseInt(String(id))]
+    );
 
-    if (!existingRole) {
+    if (existingRoleResult.rows.length === 0) {
       return res.status(404).json({
         error: 'Role not found'
       });
     }
 
+    const existingRole = existingRoleResult.rows[0];
+
     // Check if new name conflicts with existing role
     if (name && name !== existingRole.name) {
-      const nameConflict = await prisma.role.findFirst({
-        where: { 
-          name: String(name),
-          id: { not: parseInt(String(id)) }
-        }
-      });
+      const nameConflictResult = await query(
+        'SELECT id FROM roles WHERE name = ? AND id != ?',
+        [String(name), parseInt(String(id))]
+      );
 
-      if (nameConflict) {
+      if (nameConflictResult.rows.length > 0) {
         return res.status(400).json({
           error: 'Role with this name already exists'
         });
       }
     }
 
-    const role = await prisma.role.update({
-      where: { id: parseInt(String(id)) },
-      data: {
-        ...(name && { name: String(name) }),
-        ...(description && { description: String(description) }),
-        ...(permissions && { permissions }),
-        ...(isActive !== undefined && { isActive })
-      },
-      include: {
-        _count: {
-          select: {
-            users: true
-          }
-        }
-      }
-    });
+    // Build update query
+    let updateFields = [];
+    let updateParams = [];
+    
+    if (name) {
+      updateFields.push('name = ?');
+      updateParams.push(String(name));
+    }
+    if (description) {
+      updateFields.push('description = ?');
+      updateParams.push(String(description));
+    }
+    if (permissions) {
+      updateFields.push('permissions = ?');
+      updateParams.push(JSON.stringify(permissions));
+    }
+    if (isActive !== undefined) {
+      updateFields.push('is_active = ?');
+      updateParams.push(isActive);
+    }
+    
+    updateFields.push('updated_at = NOW()');
+    updateParams.push(parseInt(String(id)));
+
+    await query(
+      `UPDATE roles SET ${updateFields.join(', ')} WHERE id = ?`,
+      updateParams
+    );
+    
+    // Get updated role with user count
+    const roleResult = await query(
+      `SELECT r.*, COUNT(u.id) as user_count 
+       FROM roles r 
+       LEFT JOIN users u ON r.id = u.role_id 
+       WHERE r.id = ? 
+       GROUP BY r.id`,
+      [parseInt(String(id))]
+    );
+    
+    const role = roleResult.rows[0];
+    role._count = { users: role.user_count };
 
     res.json({
       message: 'Role updated successfully',
@@ -208,33 +249,34 @@ router.delete('/:id', validateId, requireAdmin, async (req: Request, res: Respon
     const { id } = req.params;
     if (!id) return res.status(400).json({ error: 'ID is required' });
 
-    const role = await prisma.role.findUnique({
-      where: { id: parseInt(String(id)) },
-      include: {
-        _count: {
-          select: {
-            users: true
-          }
-        }
-      }
-    });
+    const roleResult = await query(
+      `SELECT r.*, COUNT(u.id) as user_count 
+       FROM roles r 
+       LEFT JOIN users u ON r.id = u.role_id 
+       WHERE r.id = ? 
+       GROUP BY r.id`,
+      [parseInt(String(id))]
+    );
 
-    if (!role) {
+    if (roleResult.rows.length === 0) {
       return res.status(404).json({
         error: 'Role not found'
       });
     }
 
+    const role = roleResult.rows[0];
+
     // Check if role has users
-    if (role._count.users > 0) {
+    if (role.user_count > 0) {
       return res.status(400).json({
         error: 'Cannot delete role with assigned users'
       });
     }
 
-    await prisma.role.delete({
-      where: { id: parseInt(String(id)) }
-    });
+    await query(
+      'DELETE FROM roles WHERE id = ?',
+      [parseInt(String(id))]
+    );
 
     res.json({
       message: 'Role deleted successfully'

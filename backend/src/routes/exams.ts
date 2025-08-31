@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { prisma } from '../config/database.js';
+import { query } from '../config/database.js';
 import { validatePagination, validateId } from '../middleware/validation.js';
 import { requireTeacherOrAdmin } from '../middleware/auth.js';
 import { AuthenticatedRequest } from '../middleware/auth.js';

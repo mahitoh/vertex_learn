@@ -1,8 +1,6 @@
-import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
-
-const prisma = new PrismaClient();
+import { query } from '../config/database.js';
 
 // User Service
 export class UserService {
@@ -19,7 +17,7 @@ export class UserService {
     const secret = process.env.JWT_SECRET || 'fallback-secret';
     const expiresIn = process.env.JWT_EXPIRES_IN || '1h';
     
-    return jwt.sign({ userId }, secret, { expiresIn: expiresIn as string });
+    return jwt.sign({ userId }, secret, { expiresIn: expiresIn as any });
   }
 
   static async verifyToken(token: string): Promise<any> {
@@ -28,17 +26,19 @@ export class UserService {
   }
 
   static async findUserByEmail(email: string) {
-    return prisma.user.findUnique({
-      where: { email },
-      include: { role: true }
-    });
+    const { rows } = await query(
+      'SELECT u.*, r.name as role_name FROM users u LEFT JOIN roles r ON u.role_id = r.id WHERE u.email = ?',
+      [email]
+    );
+    return (rows as any[])[0];
   }
 
   static async findUserById(id: number) {
-    return prisma.user.findUnique({
-      where: { id },
-      include: { role: true }
-    });
+    const { rows } = await query(
+      'SELECT u.*, r.name as role_name FROM users u LEFT JOIN roles r ON u.role_id = r.id WHERE u.id = ?',
+      [id]
+    );
+    return (rows as any[])[0];
   }
 
   static async createUser(userData: {
@@ -51,13 +51,12 @@ export class UserService {
   }) {
     const hashedPassword = await this.hashPassword(userData.password);
     
-    return prisma.user.create({
-      data: {
-        ...userData,
-        password: hashedPassword
-      },
-      include: { role: true }
-    });
+    const { rows } = await query(
+      'INSERT INTO users (name, email, password, role_id, department, employee_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())',
+      [userData.name, userData.email, hashedPassword, userData.roleId, userData.department, userData.employeeId]
+    );
+    
+    return this.findUserById(rows.insertId);
   }
 
   static async updateUser(id: number, userData: {
@@ -66,17 +65,40 @@ export class UserService {
     department?: string;
     roleId?: number;
   }) {
-    return prisma.user.update({
-      where: { id },
-      data: userData,
-      include: { role: true }
-    });
+    const updateFields = [];
+    const values = [];
+    
+    if (userData.name) {
+      updateFields.push('name = ?');
+      values.push(userData.name);
+    }
+    if (userData.email) {
+      updateFields.push('email = ?');
+      values.push(userData.email);
+    }
+    if (userData.department) {
+      updateFields.push('department = ?');
+      values.push(userData.department);
+    }
+    if (userData.roleId) {
+      updateFields.push('role_id = ?');
+      values.push(userData.roleId);
+    }
+    
+    updateFields.push('updated_at = NOW()');
+    values.push(id);
+    
+    await query(
+      `UPDATE users SET ${updateFields.join(', ')} WHERE id = ?`,
+      values
+    );
+    
+    return this.findUserById(id);
   }
 
   static async deleteUser(id: number) {
-    return prisma.user.delete({
-      where: { id }
-    });
+    await query('DELETE FROM users WHERE id = ?', [id]);
+    return { success: true };
   }
 
   static async getUsersWithPagination(params: {
@@ -86,33 +108,36 @@ export class UserService {
     limit: number;
   }) {
     const { search, department, page, limit } = params;
-    const skip = (page - 1) * limit;
+    const offset = (page - 1) * limit;
 
-    const where: any = {};
+    let whereClause = 'WHERE 1=1';
+    const values = [];
+    
     if (search) {
-      where.OR = [
-        { name: { contains: search, mode: 'insensitive' } },
-        { email: { contains: search, mode: 'insensitive' } },
-        { employeeId: { contains: search, mode: 'insensitive' } }
-      ];
+      whereClause += ' AND (u.name LIKE ? OR u.email LIKE ? OR u.employee_id LIKE ?)';
+      const searchTerm = `%${search}%`;
+      values.push(searchTerm, searchTerm, searchTerm);
     }
     if (department) {
-      where.department = { contains: department, mode: 'insensitive' };
+      whereClause += ' AND u.department LIKE ?';
+      values.push(`%${department}%`);
     }
 
-    const [users, total] = await Promise.all([
-      prisma.user.findMany({
-        where,
-        skip,
-        take: limit,
-        include: { role: true },
-        orderBy: { createdAt: 'desc' }
-      }),
-      prisma.user.count({ where })
+    const [usersResult, totalResult] = await Promise.all([
+      query(
+        `SELECT u.*, r.name as role_name FROM users u LEFT JOIN roles r ON u.role_id = r.id ${whereClause} ORDER BY u.created_at DESC LIMIT ? OFFSET ?`,
+        [...values, limit, offset]
+      ),
+      query(
+        `SELECT COUNT(*) as total FROM users u ${whereClause}`,
+        values
+      )
     ]);
 
+    const total = (totalResult.rows as any[])[0].total;
+
     return {
-      users,
+      users: usersResult.rows,
       total,
       page,
       limit,
@@ -128,36 +153,42 @@ export class NotificationService {
     recipientId: number;
     senderId: number;
   }) {
-    return prisma.notification.create({
-      data,
-      include: {
-        recipient: {
-          select: { id: true, name: true, email: true }
-        },
-        sender: {
-          select: { id: true, name: true, email: true }
-        }
-      }
-    });
+    const { rows } = await query(
+      'INSERT INTO notifications (message, recipient_id, sender_id, status, created_at) VALUES (?, ?, ?, "unread", NOW())',
+      [data.message, data.recipientId, data.senderId]
+    );
+    
+    return this.getNotificationById(rows.insertId);
+  }
+
+  static async getNotificationById(id: number) {
+    const { rows } = await query(
+      `SELECT n.*, 
+              r.name as recipient_name, r.email as recipient_email,
+              s.name as sender_name, s.email as sender_email
+       FROM notifications n 
+       LEFT JOIN users r ON n.recipient_id = r.id 
+       LEFT JOIN users s ON n.sender_id = s.id 
+       WHERE n.id = ?`,
+      [id]
+    );
+    return rows[0];
   }
 
   static async markAsRead(notificationId: number, userId: number) {
-    return prisma.notification.updateMany({
-      where: {
-        id: notificationId,
-        recipientId: userId
-      },
-      data: { status: 'read' }
-    });
+    await query(
+      'UPDATE notifications SET status = "read" WHERE id = ? AND recipient_id = ?',
+      [notificationId, userId]
+    );
+    return { success: true };
   }
 
   static async getUnreadCount(userId: number) {
-    return prisma.notification.count({
-      where: {
-        recipientId: userId,
-        status: 'unread'
-      }
-    });
+    const { rows } = await query(
+      'SELECT COUNT(*) as count FROM notifications WHERE recipient_id = ? AND status = "unread"',
+      [userId]
+    );
+    return rows[0].count;
   }
 }
 

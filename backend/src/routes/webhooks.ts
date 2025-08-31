@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { prisma } from '../config/database.js';
+import { query } from '../config/database.js';
 import { requireAdmin } from '../middleware/auth.js';
 
 const router = Router();
@@ -14,23 +14,25 @@ router.post('/payment', async (req: Request, res: Response) => {
     }
 
     // Update invoice status
-    await prisma.invoice.update({
-      where: { id: parseInt(String(invoiceId)) },
-      data: { status: String(status) }
-    });
+    await query(
+      'UPDATE invoices SET status = ?, updated_at = NOW() WHERE id = ?',
+      [String(status), parseInt(String(invoiceId))]
+    );
 
     // Create payment record if payment successful
     if (status === 'paid' && transactionId && amount) {
-      await prisma.payment.create({
-        data: {
-          invoiceId: parseInt(String(invoiceId)),
-          studentId: 1, // This should come from the webhook payload
-          amount: parseFloat(String(amount)),
-          paymentMethod: 'webhook',
-          transactionId: String(transactionId),
-          status: 'completed'
-        }
-      });
+      await query(
+        `INSERT INTO payments (invoice_id, student_id, amount, payment_method, transaction_id, status, payment_date, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW(), NOW())`,
+        [
+          parseInt(String(invoiceId)),
+          1, // This should come from the webhook payload
+          parseFloat(String(amount)),
+          'webhook',
+          String(transactionId),
+          'completed'
+        ]
+      );
     }
 
     res.json({ message: 'Webhook processed successfully' });
@@ -51,15 +53,17 @@ router.post('/notification', requireAdmin, async (req: Request, res: Response) =
     }
 
     // Log notification delivery status
-    await prisma.notification.create({
-      data: {
-        message: String(message),
-        recipientId: parseInt(String(recipientId)),
-        senderId: 1, // System
-        type: String(type),
-        status: String(status) || 'unread'
-      }
-    });
+    await query(
+      `INSERT INTO notifications (message, recipient_id, sender_id, type, status, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, NOW(), NOW())`,
+      [
+        String(message),
+        parseInt(String(recipientId)),
+        1, // System
+        String(type),
+        String(status) || 'unread'
+      ]
+    );
 
     res.json({ message: 'Notification webhook processed successfully' });
 
@@ -82,25 +86,37 @@ router.post('/sync', requireAdmin, async (req: Request, res: Response) => {
     switch (entity) {
       case 'user':
         if (action === 'create') {
-          await prisma.user.create({ data });
+          await query(
+            `INSERT INTO users (email, password, first_name, last_name, name, role_id, created_at, updated_at)
+             VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())`,
+            [data.email, data.password, data.firstName, data.lastName, data.name, data.roleId || 1]
+          );
         } else if (action === 'update') {
           const { id, ...updateData } = data;
-          await prisma.user.update({
-            where: { id: parseInt(String(id)) },
-            data: updateData
-          });
+          const fields = Object.keys(updateData).map(key => `${key} = ?`).join(', ');
+          const values = Object.values(updateData);
+          await query(
+            `UPDATE users SET ${fields}, updated_at = NOW() WHERE id = ?`,
+            [...values, parseInt(String(id))]
+          );
         }
         break;
       
       case 'course':
         if (action === 'create') {
-          await prisma.course.create({ data });
+          await query(
+            `INSERT INTO courses (name, code, credits, description, instructor_id, created_at, updated_at)
+             VALUES (?, ?, ?, ?, ?, NOW(), NOW())`,
+            [data.name, data.code, data.credits, data.description, data.instructorId]
+          );
         } else if (action === 'update') {
           const { id, ...updateData } = data;
-          await prisma.course.update({
-            where: { id: parseInt(String(id)) },
-            data: updateData
-          });
+          const fields = Object.keys(updateData).map(key => `${key} = ?`).join(', ');
+          const values = Object.values(updateData);
+          await query(
+            `UPDATE courses SET ${fields}, updated_at = NOW() WHERE id = ?`,
+            [...values, parseInt(String(id))]
+          );
         }
         break;
       
@@ -120,11 +136,12 @@ router.post('/sync', requireAdmin, async (req: Request, res: Response) => {
 router.get('/config', requireAdmin, async (req: Request, res: Response) => {
   try {
     // Get webhook configurations from settings
-    const webhookConfigs = await prisma.setting.findMany({
-      where: { key: { startsWith: 'webhook_' } }
-    });
+    const webhookConfigsResult = await query(
+      'SELECT * FROM settings WHERE `key` LIKE ?',
+      ['webhook_%']
+    );
 
-    res.json({ webhookConfigs });
+    res.json({ webhookConfigs: webhookConfigsResult.rows });
 
   } catch (error) {
     console.error('Get webhook config error:', error);
@@ -137,16 +154,38 @@ router.put('/config/:key', requireAdmin, async (req: Request, res: Response) => 
   try {
     const { key } = req.params;
     const { value, description } = req.body;
+    const webhookKey = `webhook_${key}`;
 
-    const webhookConfig = await prisma.setting.upsert({
-      where: { key: `webhook_${key}` },
-      update: { value: String(value), description: String(description) },
-      create: {
-        key: `webhook_${key}`,
-        value: String(value),
-        description: String(description)
-      }
-    });
+    // Check if setting exists
+    const existingResult = await query(
+      'SELECT id FROM settings WHERE `key` = ?',
+      [webhookKey]
+    );
+
+    let webhookConfig;
+    if (existingResult.rows.length > 0) {
+      // Update existing
+      await query(
+        'UPDATE settings SET value = ?, description = ?, updated_at = NOW() WHERE `key` = ?',
+        [String(value), String(description), webhookKey]
+      );
+      const updatedResult = await query(
+        'SELECT * FROM settings WHERE `key` = ?',
+        [webhookKey]
+      );
+      webhookConfig = updatedResult.rows[0];
+    } else {
+      // Create new
+      await query(
+        'INSERT INTO settings (`key`, value, description, created_at, updated_at) VALUES (?, ?, ?, NOW(), NOW())',
+        [webhookKey, String(value), String(description)]
+      );
+      const createdResult = await query(
+        'SELECT * FROM settings WHERE `key` = ?',
+        [webhookKey]
+      );
+      webhookConfig = createdResult.rows[0];
+    }
 
     res.json({ webhookConfig });
 

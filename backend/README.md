@@ -1,6 +1,6 @@
 # vertex_learn ERP Backend
 
-A comprehensive ERP system backend for educational institutions built with Node.js, Express.js, Prisma ORM, and PostgreSQL.
+A comprehensive ERP system backend for educational institutions built with Node.js, Express.js, and MySQL.
 
 ## Features
 
@@ -31,8 +31,7 @@ A comprehensive ERP system backend for educational institutions built with Node.
 
 - **Runtime**: Node.js
 - **Framework**: Express.js
-- **ORM**: Prisma
-- **Database**: PostgreSQL
+- **Database**: MySQL
 - **Authentication**: JWT (jsonwebtoken)
 - **Password Hashing**: bcrypt
 - **Validation**: express-validator
@@ -54,8 +53,7 @@ backend/
 │   ├── config/          # Configuration
 │   ├── docs/            # Swagger documentation
 │   └── index.ts         # Main server file
-├── prisma/
-│   └── schema.prisma    # Database schema
+├── database-schema.sql  # MySQL database schema
 ├── package.json
 ├── .env
 ├── docker-compose.yml
@@ -65,7 +63,7 @@ backend/
 ## Prerequisites
 
 - Node.js (v16 or higher)
-- PostgreSQL (v12 or higher)
+- MySQL (v8.0 or higher)
 - Docker (optional, for local development)
 
 ## Installation
@@ -92,18 +90,17 @@ backend/
    # Using Docker (recommended for development)
    docker-compose up -d
    
-   # Or connect to your PostgreSQL instance
+   # Or connect to your MySQL instance
    # Update DATABASE_URL in .env
    ```
 
-5. **Run database migrations**
+5. **Create database and tables**
    ```bash
-   npx prisma migrate dev
-   ```
-
-6. **Generate Prisma client**
-   ```bash
-   npx prisma generate
+   # Option 1: Use the setup script (recommended)
+   npm run setup-db
+   
+   # Option 2: Import the database schema manually
+   mysql -u root -p < database-schema.sql
    ```
 
 7. **Seed the database (optional)**
@@ -117,7 +114,7 @@ Create a `.env` file with the following variables:
 
 ```env
 # Database
-DATABASE_URL="postgresql://user:password@localhost:5432/vertex_learn?schema=public"
+DATABASE_URL="mysql://root:password@localhost:3306/vertex_learn"
 
 # JWT Configuration
 JWT_SECRET="your-super-secret-jwt-key"
@@ -276,17 +273,14 @@ The database uses a normalized 3NF structure with the following main entities:
 3. Export service functions
 4. Use in controllers
 
-### Database Migrations
+### Database Schema Changes
 
 ```bash
-# Create a new migration
-npx prisma migrate dev --name <migration-name>
+# For schema changes, update database-schema.sql and run:
+mysql -u root -p < database-schema.sql
 
-# Apply migrations
-npx prisma migrate deploy
-
-# Reset database (development only)
-npx prisma migrate reset
+# Or connect to MySQL and run the changes manually:
+mysql -u root -p vertex_learn
 ```
 
 ## Testing

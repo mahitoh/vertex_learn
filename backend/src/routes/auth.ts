@@ -1,7 +1,8 @@
 import { Router, Request, Response } from 'express';
 import bcrypt from 'bcrypt';
 import jwt, { SignOptions } from 'jsonwebtoken';
-import { prisma } from '../config/database.js';
+import { query } from '../config/database.js';
+import { UserService } from '../services/userService.js';
 import { validateLogin, validateRegistration } from '../middleware/validation.js';
 import { authenticateJWT } from '../middleware/auth.js';
 
@@ -13,19 +14,14 @@ router.post('/register', validateRegistration, async (req: Request, res: Respons
     const { firstName, lastName, email, password, employeeId, studentId, department, position, joinDate, admissionDate, class: className, rollNumber, organization, roleId } = req.body;
 
     // Check if user already exists
-    const existingUser = await prisma.user.findFirst({
-      where: {
-        OR: [
-          { email },
-          ...(employeeId ? [{ employeeId }] : []),
-          ...(studentId ? [{ studentId }] : [])
-        ]
-      }
-    });
+    const existingUserResult = await query(
+      'SELECT id FROM users WHERE email = ? OR employee_id = ?',
+      [email, employeeId || null]
+    );
 
-    if (existingUser) {
+    if (existingUserResult.rows.length > 0) {
       return res.status(400).json({
-        error: 'User already exists with this email, employee ID, or student ID'
+        error: 'User already exists with this email or employee ID'
       });
     }
 
@@ -33,51 +29,48 @@ router.post('/register', validateRegistration, async (req: Request, res: Respons
     const hashedPassword = await bcrypt.hash(password, 10);
 
     // Create user
-    const user = await prisma.user.create({
-      data: {
-        firstName,
-        lastName,
-        email,
-        password: hashedPassword,
-        employeeId,
-        studentId,
-        department,
-        position,
-        joinDate: joinDate ? new Date(joinDate) : undefined,
-        admissionDate: admissionDate ? new Date(admissionDate) : undefined,
-        class: className,
-        rollNumber,
-        organization,
-        roleId: roleId || 1, // Default to basic role
-        isActive: true
-      },
-      select: {
-        id: true,
-        firstName: true,
-        lastName: true,
-        email: true,
-        employeeId: true,
-        studentId: true,
-        department: true,
-        position: true,
-        joinDate: true,
-        admissionDate: true,
-        class: true,
-        rollNumber: true,
-        organization: true,
-        role: {
-          select: {
-            id: true,
-            name: true,
-            permissions: true
-          }
-        }
-      }
-    });
+    const fullName = `${firstName} ${lastName}`;
+    const userResult = await query(`
+      INSERT INTO users (
+        name, email, password, employee_id, department, role_id, 
+        phone, address, date_of_birth, hire_date, salary, is_active
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, true)
+    `, [
+      fullName, email, hashedPassword, employeeId || null,
+      department || null, roleId || 1, null, null, null, 
+      joinDate ? new Date(joinDate) : null, null
+    ]);
+
+    // Get the created user with role information
+    const insertId = (userResult.rows as any).insertId;
+    const newUserResult = await query(`
+      SELECT u.*, r.name as role_name, r.description as role_description
+      FROM users u 
+      LEFT JOIN roles r ON u.role_id = r.id 
+      WHERE u.id = ?
+    `, [insertId]);
+
+    const user = newUserResult.rows[0];
 
     res.status(201).json({
       message: 'User registered successfully',
-      user
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        employeeId: user.employee_id,
+        department: user.department,
+        phone: user.phone,
+        address: user.address,
+        dateOfBirth: user.date_of_birth,
+        hireDate: user.hire_date,
+        salary: user.salary,
+        role: {
+          id: user.role_id,
+          name: user.role_name,
+          description: user.role_description
+        }
+      }
     });
 
   } catch (error) {
@@ -94,41 +87,30 @@ router.post('/login', validateLogin, async (req: Request, res: Response) => {
     const { email, password } = req.body;
 
     // Find user
-    const user = await prisma.user.findFirst({
-      where: {
-        OR: [
-          { email },
-          { employeeId: email },
-          { studentId: email }
-        ],
-        isActive: true
-      },
-      include: {
-        role: {
-          select: {
-            id: true,
-            name: true,
-            permissions: true
-          }
-        }
-      }
-    });
+    const userResult = await query(`
+      SELECT u.*, r.name as role_name, r.description as role_description
+      FROM users u 
+      LEFT JOIN roles r ON u.role_id = r.id 
+      WHERE u.email = ? AND u.is_active = true
+    `, [email]);
 
-    if (!user) {
+    if (userResult.rows.length === 0) {
       return res.status(401).json({
-        error: 'Invalid credentials'
+        error: 'Invalid email or password'
       });
     }
+
+    const user = userResult.rows[0];
 
     // Verify password
     const isValidPassword = await bcrypt.compare(password, user.password);
     if (!isValidPassword) {
       return res.status(401).json({
-        error: 'Invalid credentials'
+        error: 'Invalid email or password'
       });
     }
 
-    // Generate JWT tokens
+    // Generate tokens
     const secret = process.env.JWT_SECRET || 'your-secret-key';
     const expiresIn = process.env.JWT_EXPIRES_IN || '24h';
     const refreshExpiresIn = process.env.JWT_REFRESH_EXPIRES_IN || '7d';
@@ -137,33 +119,44 @@ router.post('/login', validateLogin, async (req: Request, res: Response) => {
       { 
         userId: user.id, 
         email: user.email, 
-        role: user.role.name,
-        permissions: user.role.permissions
-      }, 
-      secret as string, 
-      { expiresIn: expiresIn }
+        role: user.role_name 
+      },
+      secret,
+      { expiresIn: expiresIn as string }
     );
 
     const refreshToken = jwt.sign(
-      { userId: user.id }, 
-      secret as string, 
-      { expiresIn: refreshExpiresIn }
+      { 
+        userId: user.id, 
+        email: user.email 
+      },
+      secret,
+      { expiresIn: refreshExpiresIn as string }
     );
 
-    // Update last login
-    await prisma.user.update({
-      where: { id: user.id },
-      data: { lastLogin: new Date() }
-    });
-
-    // Remove password from response
-    const { password: _, ...userWithoutPassword } = user;
+    // Update last login (add updated_at to the update)
+    await query(
+      'UPDATE users SET updated_at = NOW() WHERE id = ?',
+      [user.id]
+    );
 
     res.json({
       message: 'Login successful',
-      user: userWithoutPassword,
       accessToken,
-      refreshToken
+      refreshToken,
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        employeeId: user.employee_id,
+        department: user.department,
+        phone: user.phone,
+        role: {
+          id: user.role_id,
+          name: user.role_name,
+          description: user.role_description
+        }
+      }
     });
 
   } catch (error) {
@@ -190,106 +183,107 @@ router.post('/refresh', async (req: Request, res: Response) => {
 
     // Verify refresh token
     const decoded = jwt.verify(refreshToken, secret) as any;
-    
-    // Get user
-    const user = await prisma.user.findUnique({
-      where: { id: decoded.userId },
-      include: {
-        role: {
-          select: {
-            id: true,
-            name: true,
-            permissions: true
-          }
-        }
-      }
-    });
 
-    if (!user || !user.isActive) {
+    // Get user
+    const userResult = await query(`
+      SELECT u.*, r.name as role_name
+      FROM users u 
+      LEFT JOIN roles r ON u.role_id = r.id 
+      WHERE u.id = ? AND u.is_active = true
+    `, [decoded.userId]);
+
+    if (userResult.rows.length === 0) {
       return res.status(401).json({
         error: 'Invalid refresh token'
       });
     }
+
+    const user = userResult.rows[0];
 
     // Generate new access token
     const newAccessToken = jwt.sign(
       { 
         userId: user.id, 
         email: user.email, 
-        role: user.role.name,
-        permissions: user.role.permissions
-      }, 
-      secret, 
-      { expiresIn }
+        role: user.role_name 
+      },
+      secret,
+      { expiresIn: expiresIn as string }
     );
 
     res.json({
-      message: 'Token refreshed successfully',
-      accessToken: newAccessToken
+      accessToken: newAccessToken,
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: {
+          id: user.role_id,
+          name: user.role_name
+        }
+      }
     });
 
   } catch (error) {
-    console.error('Token refresh error:', error);
+    console.error('Refresh token error:', error);
     res.status(401).json({
       error: 'Invalid refresh token'
     });
   }
 });
 
-// Get current user profile
-router.get('/profile', authenticateJWT, async (req: any, res: Response) => {
+// Get current user
+router.get('/me', authenticateJWT, async (req: Request, res: Response) => {
   try {
-    const userId = req.user.id;
+    const userId = (req as any).user?.userId;
 
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      select: {
-        id: true,
-        firstName: true,
-        lastName: true,
-        email: true,
-        employeeId: true,
-        studentId: true,
-        department: true,
-        position: true,
-        joinDate: true,
-        admissionDate: true,
-        class: true,
-        rollNumber: true,
-        organization: true,
-        lastLogin: true,
-        role: {
-          select: {
-            id: true,
-            name: true,
-            permissions: true
-          }
-        }
-      }
-    });
+    const userResult = await query(`
+      SELECT u.*, r.name as role_name, r.description as role_description
+      FROM users u 
+      LEFT JOIN roles r ON u.role_id = r.id 
+      WHERE u.id = ? AND u.is_active = true
+    `, [userId]);
 
-    if (!user) {
+    if (userResult.rows.length === 0) {
       return res.status(404).json({
         error: 'User not found'
       });
     }
 
+    const user = userResult.rows[0];
+
     res.json({
-      user
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        employeeId: user.employee_id,
+        department: user.department,
+        phone: user.phone,
+        address: user.address,
+        dateOfBirth: user.date_of_birth,
+        hireDate: user.hire_date,
+        salary: user.salary,
+        role: {
+          id: user.role_id,
+          name: user.role_name,
+          description: user.role_description
+        }
+      }
     });
 
   } catch (error) {
-    console.error('Get profile error:', error);
+    console.error('Get current user error:', error);
     res.status(500).json({
-      error: 'Internal server error while fetching profile'
+      error: 'Internal server error'
     });
   }
 });
 
-// Logout (client-side token removal)
-router.post('/logout', authenticateJWT, async (req: any, res: Response) => {
+// Logout
+router.post('/logout', authenticateJWT, async (req: Request, res: Response) => {
   try {
-    // In a real application, you might want to blacklist the token
+    // In a more complex implementation, you might want to blacklist the token
     // For now, we'll just return a success message
     res.json({
       message: 'Logout successful'
@@ -298,7 +292,7 @@ router.post('/logout', authenticateJWT, async (req: any, res: Response) => {
   } catch (error) {
     console.error('Logout error:', error);
     res.status(500).json({
-      error: 'Internal server error during logout'
+      error: 'Internal server error'
     });
   }
 });

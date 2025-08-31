@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { prisma } from '../config/database.js';
+import { query } from '../config/database.js';
 import { requireAdmin } from '../middleware/auth.js';
 
 const router = Router();
@@ -15,25 +15,30 @@ router.post('/users', requireAdmin, async (req: Request, res: Response) => {
 
     const results = await Promise.allSettled(
       users.map(async (userData: any) => {
-        return await prisma.user.create({
-          data: {
-            email: userData.email,
-            password: userData.password || 'defaultPassword123',
-            firstName: userData.firstName,
-            lastName: userData.lastName,
-            name: `${userData.firstName} ${userData.lastName}`,
-            roleId: userData.roleId || 1,
-            employeeId: userData.employeeId,
-            studentId: userData.studentId,
-            department: userData.department,
-            position: userData.position,
-            joinDate: userData.joinDate ? new Date(userData.joinDate) : null,
-            admissionDate: userData.admissionDate ? new Date(userData.admissionDate) : null,
-            class: userData.class,
-            rollNumber: userData.rollNumber,
-            organization: userData.organization
-          }
-        });
+        return await query(
+          `INSERT INTO users (
+            email, password, first_name, last_name, name, role_id, employee_id, 
+            student_id, department, position, join_date, admission_date, 
+            class, roll_number, organization, created_at, updated_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
+          [
+            userData.email,
+            userData.password || 'defaultPassword123',
+            userData.firstName,
+            userData.lastName,
+            `${userData.firstName} ${userData.lastName}`,
+            userData.roleId || 1,
+            userData.employeeId || null,
+            userData.studentId || null,
+            userData.department || null,
+            userData.position || null,
+            userData.joinDate ? new Date(userData.joinDate) : null,
+            userData.admissionDate ? new Date(userData.admissionDate) : null,
+            userData.class || null,
+            userData.rollNumber || null,
+            userData.organization || null
+          ]
+        );
       })
     );
 
@@ -64,16 +69,18 @@ router.post('/courses', requireAdmin, async (req: Request, res: Response) => {
 
     const results = await Promise.allSettled(
       courses.map(async (courseData: any) => {
-        return await prisma.course.create({
-          data: {
-            name: courseData.name,
-            code: courseData.code,
-            credits: courseData.credits,
-            description: courseData.description,
-            instructorId: courseData.instructorId,
-            isActive: courseData.isActive !== undefined ? courseData.isActive : true
-          }
-        });
+        return await query(
+          `INSERT INTO courses (name, code, credits, description, instructor_id, is_active, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())`,
+          [
+            courseData.name,
+            courseData.code,
+            courseData.credits,
+            courseData.description || null,
+            courseData.instructorId || null,
+            courseData.isActive !== undefined ? courseData.isActive : true
+          ]
+        );
       })
     );
 
@@ -106,16 +113,15 @@ router.put('/users/status', requireAdmin, async (req: Request, res: Response) =>
       return res.status(400).json({ error: 'isActive must be a boolean value' });
     }
 
-    const result = await prisma.user.updateMany({
-      where: {
-        id: { in: userIds.map((id: any) => parseInt(String(id))) }
-      },
-      data: { isActive }
-    });
+    const placeholders = userIds.map(() => '?').join(',');
+    const result = await query(
+      `UPDATE users SET is_active = ?, updated_at = NOW() WHERE id IN (${placeholders})`,
+      [isActive, ...userIds.map((id: any) => parseInt(String(id)))]
+    );
 
     res.json({
-      message: `Status updated for ${result.count} users`,
-      updatedCount: result.count
+      message: `Status updated for ${result.rows.affectedRows} users`,
+      updatedCount: result.rows.affectedRows
     });
 
   } catch (error) {
@@ -133,15 +139,15 @@ router.delete('/users', requireAdmin, async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'User IDs array is required and must not be empty' });
     }
 
-    const result = await prisma.user.deleteMany({
-      where: {
-        id: { in: userIds.map((id: any) => parseInt(String(id))) }
-      }
-    });
+    const placeholders = userIds.map(() => '?').join(',');
+    const result = await query(
+      `DELETE FROM users WHERE id IN (${placeholders})`,
+      userIds.map((id: any) => parseInt(String(id)))
+    );
 
     res.json({
-      message: `${result.count} users deleted successfully`,
-      deletedCount: result.count
+      message: `${result.rows.affectedRows} users deleted successfully`,
+      deletedCount: result.rows.affectedRows
     });
 
   } catch (error) {
@@ -163,17 +169,19 @@ router.post('/grades', requireAdmin, async (req: Request, res: Response) => {
       grades.map(async (gradeData: any) => {
         const percentage = (gradeData.score / gradeData.maxScore) * 100;
         
-        return await prisma.grade.create({
-          data: {
-            studentId: parseInt(String(gradeData.studentId)),
-            courseId: parseInt(String(gradeData.courseId)),
-            assignmentType: gradeData.assignmentType,
-            score: parseFloat(String(gradeData.score)),
-            maxScore: parseFloat(String(gradeData.maxScore)),
+        return await query(
+          `INSERT INTO grades (student_id, course_id, assignment_type, score, max_score, percentage, comments, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
+          [
+            parseInt(String(gradeData.studentId)),
+            parseInt(String(gradeData.courseId)),
+            gradeData.assignmentType,
+            parseFloat(String(gradeData.score)),
+            parseFloat(String(gradeData.maxScore)),
             percentage,
-            comments: gradeData.comments
-          }
-        });
+            gradeData.comments || null
+          ]
+        );
       })
     );
 

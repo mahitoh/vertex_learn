@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { prisma } from '../config/database.js';
+import { query } from '../config/database.js';
 import { validateGrade, validatePagination, validateId } from '../middleware/validation.js';
 import { requireTeacherOrAdmin } from '../middleware/auth.js';
 import { AuthenticatedRequest } from '../middleware/auth.js';
@@ -18,31 +18,53 @@ router.get('/', validatePagination, requireTeacherOrAdmin, async (req: Request, 
       ...(assignmentType ? { assignmentType: { equals: String(assignmentType) } } : {})
     };
 
-    const grades = await prisma.grade.findMany({
-      where,
-      skip,
-      take: parseInt(String(limit)),
-      include: {
-        student: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            email: true
-          }
-        },
-        course: {
-          select: {
-            id: true,
-            name: true,
-            code: true
-          }
-        }
-      },
-      orderBy: { createdAt: 'desc' }
-    });
+    let queryStr = `
+      SELECT g.*, s.id as student_id, s.first_name as student_first_name,
+             s.last_name as student_last_name, s.email as student_email,
+             c.id as course_id, c.name as course_name, c.code as course_code
+      FROM grades g
+      LEFT JOIN students s ON g.student_id = s.id
+      LEFT JOIN courses c ON g.course_id = c.id
+      WHERE 1=1
+    `;
+    const queryParams = [];
 
-    const total = await prisma.grade.count({ where });
+    if (studentId) {
+      queryStr += ' AND g.student_id = ?';
+      queryParams.push(parseInt(String(studentId)));
+    }
+    if (courseId) {
+      queryStr += ' AND g.course_id = ?';
+      queryParams.push(parseInt(String(courseId)));
+    }
+    if (assignmentType) {
+      queryStr += ' AND g.assignment_type = ?';
+      queryParams.push(String(assignmentType));
+    }
+
+    queryStr += ' ORDER BY g.created_at DESC LIMIT ? OFFSET ?';
+    queryParams.push(parseInt(String(limit)), skip);
+
+    const { rows: grades } = await query(queryStr, queryParams);
+
+    // Get total count
+    let countQuery = 'SELECT COUNT(*) as total FROM grades g WHERE 1=1';
+    const countParams = [];
+
+    if (studentId) {
+      countQuery += ' AND g.student_id = ?';
+      countParams.push(parseInt(String(studentId)));
+    }
+    if (courseId) {
+      countQuery += ' AND g.course_id = ?';
+      countParams.push(parseInt(String(courseId)));
+    }
+    if (assignmentType) {
+      countQuery += ' AND g.assignment_type = ?';
+      countParams.push(String(assignmentType));
+    }
+
+    const { rows: [{ total }] } = await query(countQuery, countParams);
 
     res.json({
       data: grades,

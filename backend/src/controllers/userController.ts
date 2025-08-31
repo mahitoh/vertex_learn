@@ -1,48 +1,27 @@
 import { Request, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import { UserService } from '../services/userService.js';
 
 // User Controller
 export class UserController {
   static async getUsers(req: Request, res: Response) {
     try {
       const { search, department, page = 1, limit = 10 } = req.query;
-      const skip = (Number(page) - 1) * Number(limit);
 
-      const where: any = {};
-      if (search) {
-        where.OR = [
-          { name: { contains: search as string, mode: 'insensitive' } },
-          { email: { contains: search as string, mode: 'insensitive' } },
-          { employeeId: { contains: search as string, mode: 'insensitive' } }
-        ];
-      }
-      if (department) {
-        where.department = { contains: department as string, mode: 'insensitive' };
-      }
-
-      const [users, total] = await Promise.all([
-        prisma.user.findMany({
-          where,
-          skip,
-          take: Number(limit),
-          include: {
-            role: true
-          },
-          orderBy: { createdAt: 'desc' }
-        }),
-        prisma.user.count({ where })
-      ]);
+      const result = await UserService.getUsersWithPagination({
+        search: search as string,
+        department: department as string,
+        page: Number(page),
+        limit: Number(limit)
+      });
 
       res.json({
         success: true,
-        data: users,
+        data: result.users,
         pagination: {
-          page: Number(page),
-          limit: Number(limit),
-          total,
-          pages: Math.ceil(total / Number(limit))
+          page: result.page,
+          limit: result.limit,
+          total: result.total,
+          pages: result.pages
         }
       });
     } catch (error) {
@@ -54,12 +33,7 @@ export class UserController {
   static async getUserById(req: Request, res: Response) {
     try {
       const { id } = req.params;
-      const user = await prisma.user.findUnique({
-        where: { id: Number(id) },
-        include: {
-          role: true
-        }
-      });
+      const user = await UserService.findUserById(Number(id));
 
       if (!user) {
         return res.status(404).json({ success: false, message: 'User not found' });
@@ -76,18 +50,13 @@ export class UserController {
     try {
       const { name, email, password, roleId, department, employeeId } = req.body;
 
-      const user = await prisma.user.create({
-        data: {
-          name,
-          email,
-          password, // Note: Should be hashed in service layer
-          roleId: Number(roleId),
-          department,
-          employeeId
-        },
-        include: {
-          role: true
-        }
+      const user = await UserService.createUser({
+        name,
+        email,
+        password,
+        roleId: Number(roleId),
+        department,
+        employeeId
       });
 
       res.status(201).json({ success: true, data: user });
@@ -102,17 +71,11 @@ export class UserController {
       const { id } = req.params;
       const { name, email, department, roleId } = req.body;
 
-      const user = await prisma.user.update({
-        where: { id: Number(id) },
-        data: {
-          name,
-          email,
-          department,
-          roleId: roleId ? Number(roleId) : undefined
-        },
-        include: {
-          role: true
-        }
+      const user = await UserService.updateUser(Number(id), {
+        name,
+        email,
+        department,
+        roleId: roleId ? Number(roleId) : undefined
       });
 
       res.json({ success: true, data: user });
@@ -126,9 +89,7 @@ export class UserController {
     try {
       const { id } = req.params;
 
-      await prisma.user.delete({
-        where: { id: Number(id) }
-      });
+      await UserService.deleteUser(Number(id));
 
       res.json({ success: true, message: 'User deleted successfully' });
     } catch (error) {

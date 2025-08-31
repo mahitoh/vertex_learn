@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { prisma } from '../config/database.js';
+import db from '../config/database.js';
 import { validateUserUpdate, validatePagination, validateId } from '../middleware/validation.js';
 import { requireAdmin, requireStaffOrAdmin } from '../middleware/auth.js';
 import { AuthenticatedRequest } from '../middleware/auth.js';
@@ -10,65 +10,91 @@ const router = Router();
 router.get('/', validatePagination, requireStaffOrAdmin, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { search, department, role, page = 1, limit = 10 } = req.query;
-    const skip = (parseInt(page as string) - 1) * parseInt(limit as string);
+    const offset = (parseInt(page as string) - 1) * parseInt(limit as string);
     
-    const where = {
-      isActive: true,
-      ...(search ? {
-        OR: [
-          { name: { contains: search as string, mode: 'insensitive' } },
-          { email: { contains: search as string, mode: 'insensitive' } },
-          { employeeId: { contains: search as string, mode: 'insensitive' } },
-          { studentId: { contains: search as string, mode: 'insensitive' } }
-        ]
-      } : {}),
-      ...(department ? { department: { contains: department as string, mode: 'insensitive' } } : {}),
-      ...(role ? { role: { name: { equals: role as string, mode: 'insensitive' } } } : {})
-    };
+    // Build the SQL query with conditions
+    let queryParams: any[] = [];
+    let conditions = ['users.isActive = true'];
+    
+    if (search) {
+      conditions.push(`(
+        users.name LIKE ? OR 
+        users.email LIKE ? OR 
+        users.employeeId LIKE ? OR 
+        users.studentId LIKE ?
+      )`);
+      const searchParam = `%${search}%`;
+      queryParams.push(searchParam, searchParam, searchParam, searchParam);
+    }
+    
+    if (department) {
+      conditions.push(`users.department LIKE ?`);
+      queryParams.push(`%${department}%`);
+    }
+    
+    if (role) {
+      conditions.push(`roles.name LIKE ?`);
+      queryParams.push(`%${role}%`);
+    }
+    
+    const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+    
+    // Query to get users with their roles
+    const query = `
+      SELECT 
+        users.id, 
+        users.firstName, 
+        users.lastName, 
+        users.name, 
+        users.email, 
+        users.employeeId, 
+        users.studentId, 
+        users.department,
+        users.position, 
+        users.joinDate,
+        users.admissionDate,
+        users.class,
+        users.rollNumber,
+        users.organization,
+        users.createdAt,
+        users.updatedAt,
+        roles.id as roleId,
+        roles.name as roleName,
+        roles.permissions
+      FROM users
+      JOIN roles ON users.roleId = roles.id
+      ${whereClause}
+      ORDER BY users.createdAt DESC
+      LIMIT ? OFFSET ?
+    `;
+    
+    // Add limit and offset parameters
+    queryParams.push(parseInt(limit as string), offset);
+    
+    // Execute the query
+    const result = await db.query(query, queryParams);
+    const users = result.rows;
+    
+    // Get total count for pagination
+    const countQuery = `
+      SELECT COUNT(*) as total
+      FROM users
+      JOIN roles ON users.roleId = roles.id
+      ${whereClause}
+    `;
+    
+    const countResult = await db.query(countQuery, queryParams.slice(0, queryParams.length - 2));
+    const total = parseInt(countResult.rows[0].total);
 
-    const users = await prisma.user.findMany({
-      where,
-      skip,
-      take: parseInt(limit as string),
-      include: {
-        role: {
-          select: {
-            id: true,
-            name: true,
-            permissions: true
-          }
-        }
-      },
-      select: {
-        id: true,
-        firstName: true,
-        lastName: true,
-        name: true,
-        email: true,
-        employeeId: true,
-        studentId: true,
-        department: true,
-        position: true,
-        joinDate: true,
-        admissionDate: true,
-        class: true,
-        rollNumber: true,
-        organization: true,
-        isActive: true,
-        createdAt: true,
-        updatedAt: true
-      },
-      orderBy: { createdAt: 'desc' }
-    });
-
-    const total = await prisma.user.count({ where });
-
-    res.json({
+    return res.status(200).json({
+      success: true,
       data: users,
-      total,
-      page: parseInt(page as string),
-      limit: parseInt(limit as string),
-      totalPages: Math.ceil(total / parseInt(limit as string))
+      pagination: {
+        total,
+        page: parseInt(page as string),
+        limit: parseInt(limit as string),
+        pages: Math.ceil(total / parseInt(limit as string))
+      }
     });
 
   } catch (error) {

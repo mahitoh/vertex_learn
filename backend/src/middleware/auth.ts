@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
-import { prisma } from '../config/database.js';
+import db from '../config/database.js';
 
 export interface AuthenticatedRequest extends Request {
   user?: {
@@ -16,7 +16,7 @@ export const authenticateJWT = async (
   req: AuthenticatedRequest,
   res: Response,
   next: NextFunction
-) => {
+): Promise<void | Response> => {
   try {
     const authHeader = req.headers.authorization;
     
@@ -35,11 +35,21 @@ export const authenticateJWT = async (
     const decoded = jwt.verify(token, process.env.JWT_SECRET) as any;
     
     // Get user with role and permissions
-    const user = await prisma.user.findUnique({
-      where: { id: decoded.userId },
-      include: { role: true }
-    });
-
+    const query = `
+      SELECT 
+        users.id, 
+        users.email, 
+        users.isActive,
+        roles.name as role_name, 
+        roles.permissions
+      FROM users
+      JOIN roles ON users.roleId = roles.id
+      WHERE users.id = ?
+    `;
+    
+    const result = await db.query(query, [decoded.userId]);
+    const user = result.rows[0];
+    
     if (!user || !user.isActive) {
       return res.status(401).json({ 
         error: 'Invalid or inactive user token.' 
@@ -49,11 +59,12 @@ export const authenticateJWT = async (
     req.user = {
       id: user.id,
       email: user.email,
-      role: user.role.name,
-      permissions: user.role.permissions
+      role: user.role_name,
+      permissions: user.permissions
     };
 
     next();
+    return;
   } catch (error) {
     if (error instanceof jwt.JsonWebTokenError) {
       return res.status(401).json({ 
@@ -76,7 +87,7 @@ export const authenticateJWT = async (
 
 // Role-based Access Control Middleware
 export const requireRole = (allowedRoles: string[]) => {
-  return (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+  return (req: AuthenticatedRequest, res: Response, next: NextFunction): Response | void => {
     if (!req.user) {
       return res.status(401).json({ 
         error: 'Authentication required.' 
@@ -90,12 +101,13 @@ export const requireRole = (allowedRoles: string[]) => {
     }
 
     next();
+    return;
   };
 };
 
 // Module Access Control Middleware
 export const requireModuleAccess = (module: string, action: string) => {
-  return (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+  return (req: AuthenticatedRequest, res: Response, next: NextFunction): Response | void => {
     if (!req.user) {
       return res.status(401).json({ 
         error: 'Authentication required.' 
@@ -114,6 +126,7 @@ export const requireModuleAccess = (module: string, action: string) => {
     }
 
     next();
+    return;
   };
 };
 

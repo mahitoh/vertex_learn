@@ -1,10 +1,9 @@
 import express, { Request, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
+import { query } from '../config/database.js';
 import { authenticateJWT, requireAdmin } from '../middleware/auth.js';
 import { validateCampaign, validatePagination, handleValidationErrors } from '../middleware/validation.js';
 
 const router = express.Router();
-const prisma = new PrismaClient();
 
 // GET /api/campaigns - List campaigns with filters and pagination
 router.get('/', authenticateJWT, requireAdmin, validatePagination, handleValidationErrors, async (req: Request, res: Response) => {
@@ -12,23 +11,31 @@ router.get('/', authenticateJWT, requireAdmin, validatePagination, handleValidat
     const { status, type, page = 1, limit = 10 } = req.query;
     const skip = (Number(String(page)) - 1) * Number(String(limit));
 
-    const where: any = {};
+    let whereClause = 'WHERE 1=1';
+    const values = [];
+    
     if (status) {
-      where.status = { equals: String(status), mode: 'insensitive' };
+      whereClause += ' AND status = ?';
+      values.push(String(status));
     }
     if (type) {
-      where.type = { equals: String(type), mode: 'insensitive' };
+      whereClause += ' AND campaign_type = ?';
+      values.push(String(type));
     }
 
-    const [campaigns, total] = await Promise.all([
-      prisma.campaign.findMany({
-        where,
-        skip,
-        take: Number(String(limit)),
-        orderBy: { createdAt: 'desc' }
-      }),
-      prisma.campaign.count({ where })
+    const [campaignsResult, totalResult] = await Promise.all([
+      query(
+        `SELECT * FROM campaigns ${whereClause} ORDER BY created_at DESC LIMIT ? OFFSET ?`,
+        [...values, Number(String(limit)), skip]
+      ),
+      query(
+        `SELECT COUNT(*) as total FROM campaigns ${whereClause}`,
+        values
+      )
     ]);
+
+    const campaigns = campaignsResult.rows;
+    const total = totalResult.rows[0].total;
 
     res.json({
       success: true,
@@ -50,15 +57,16 @@ router.get('/', authenticateJWT, requireAdmin, validatePagination, handleValidat
 router.get('/:id', authenticateJWT, requireAdmin, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const campaign = await prisma.campaign.findUnique({
-      where: { id: Number(String(id)) }
-    });
+    const campaignResult = await query(
+      'SELECT * FROM campaigns WHERE id = ?',
+      [Number(String(id))]
+    );
 
-    if (!campaign) {
+    if (campaignResult.rows.length === 0) {
       return res.status(404).json({ success: false, message: 'Campaign not found' });
     }
 
-    res.json({ success: true, data: campaign });
+    res.json({ success: true, data: campaignResult.rows[0] });
   } catch (error) {
     console.error('Error fetching campaign:', error);
     res.status(500).json({ success: false, message: 'Internal server error' });

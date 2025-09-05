@@ -5,6 +5,7 @@ import SlidingSidebar from "@/components/dashboard/SlidingSidebar";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useUser } from "@/contexts/UserContext";
 import { useSidebar } from "@/contexts/SidebarContext";
+import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -38,23 +39,35 @@ import {
 } from "@/components/ui/table";
 
 interface StudentReport {
-  id: string;
-  studentId: string;
-  name: string;
-  course: string;
-  averageGrade: number;
-  attendance: number;
-  assignments: {
-    completed: number;
-    total: number;
-  };
-  lastActivity: string;
-  status: 'excellent' | 'good' | 'needs-attention' | 'at-risk';
+  id: number;
+  student_id: number;
+  student_name: string;
+  student_email: string;
+  course_id: number;
+  course_name: string;
+  course_code: string;
+  average_grade: number;
+  attendance_percentage: number;
+  total_assignments: number;
+  completed_assignments: number;
+  last_activity: string;
+}
+
+interface Grade {
+  id: number;
+  student_id: number;
+  course_id: number;
+  assignment_type: string;
+  score: number;
+  max_score: number;
+  percentage: number;
+  created_at: string;
 }
 
 export default function TeacherReports() {
   const isMobile = useIsMobile();
   const { user } = useUser();
+  const { toast } = useToast();
   const {
     sidebarOpen,
     sidebarCollapsed,
@@ -65,89 +78,107 @@ export default function TeacherReports() {
 
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCourse, setSelectedCourse] = useState("all");
-  const [selectedStatus, setSelectedStatus] = useState("all");
 
-  // Mock data - replace with actual API call
-  const { data: reports, isLoading } = useQuery<StudentReport[]>({
-    queryKey: ["/api/teacher/reports", selectedCourse, selectedStatus],
-    queryFn: () => Promise.resolve([
-      {
-        id: "1",
-        studentId: "STU001",
-        name: "Alice Johnson",
-        course: "Advanced Mathematics",
-        averageGrade: 92,
-        attendance: 95,
-        assignments: { completed: 18, total: 20 },
-        lastActivity: "2 hours ago",
-        status: "excellent"
-      },
-      {
-        id: "2",
-        studentId: "STU002",
-        name: "Bob Smith",
-        course: "Physics Laboratory",
-        averageGrade: 78,
-        attendance: 88,
-        assignments: { completed: 15, total: 18 },
-        lastActivity: "1 day ago",
-        status: "good"
-      },
-      {
-        id: "3",
-        studentId: "STU003",
-        name: "Carol Davis",
-        course: "Chemistry Fundamentals",
-        averageGrade: 65,
-        attendance: 72,
-        assignments: { completed: 12, total: 16 },
-        lastActivity: "3 days ago",
-        status: "needs-attention"
-      },
-      {
-        id: "4",
-        studentId: "STU004",
-        name: "David Wilson",
-        course: "Advanced Mathematics",
-        averageGrade: 45,
-        attendance: 60,
-        assignments: { completed: 8, total: 20 },
-        lastActivity: "1 week ago",
-        status: "at-risk"
-      },
-      {
-        id: "5",
-        studentId: "STU005",
-        name: "Eva Brown",
-        course: "Physics Laboratory",
-        averageGrade: 88,
-        attendance: 92,
-        assignments: { completed: 17, total: 18 },
-        lastActivity: "4 hours ago",
-        status: "excellent"
-      }
-    ])
+  // Fetch teacher's courses
+  const { data: coursesResponse } = useQuery({
+    queryKey: ["/api/courses/instructor", user?.id],
+    queryFn: async () => {
+      const response = await fetch(`/api/courses/instructor/${user?.id}`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+      if (!response.ok) throw new Error('Failed to fetch courses');
+      return response.json();
+    },
+    enabled: !!user?.id
   });
 
-  const courses = ["Advanced Mathematics", "Physics Laboratory", "Chemistry Fundamentals", "Biology Basics"];
+  const courses = coursesResponse?.courses || [];
 
-  const filteredReports = reports?.filter(report => {
-    const matchesSearch = report.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         report.studentId.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesCourse = selectedCourse === "all" || report.course === selectedCourse;
-    const matchesStatus = selectedStatus === "all" || report.status === selectedStatus;
+  // Fetch grades for teacher's courses
+  const { data: gradesResponse, isLoading } = useQuery({
+    queryKey: ["/api/grades", selectedCourse],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (selectedCourse !== "all") {
+        params.append('courseId', selectedCourse);
+      }
+      
+      const response = await fetch(`/api/grades?${params.toString()}`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+      if (!response.ok) throw new Error('Failed to fetch grades');
+      return response.json();
+    },
+    enabled: !!user?.id
+  });
+
+  // Process grades data to create student reports
+  const reports: StudentReport[] = [];
+  if (gradesResponse?.data) {
+    const studentMap = new Map();
     
-    return matchesSearch && matchesCourse && matchesStatus;
-  }) || [];
+    gradesResponse.data.forEach((grade: any) => {
+      const key = `${grade.student_id}-${grade.course_id}`;
+      if (!studentMap.has(key)) {
+        studentMap.set(key, {
+          id: grade.id,
+          student_id: grade.student_id,
+          student_name: `${grade.student_first_name} ${grade.student_last_name}`,
+          student_email: grade.student_email,
+          course_id: grade.course_id,
+          course_name: grade.course_name,
+          course_code: grade.course_code,
+          grades: [],
+          total_assignments: 0,
+          completed_assignments: 0,
+          last_activity: grade.created_at
+        });
+      }
+      
+      const student = studentMap.get(key);
+      student.grades.push(grade);
+      student.total_assignments++;
+      if (grade.score > 0) student.completed_assignments++;
+    });
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'excellent': return 'bg-green-100 text-green-800';
-      case 'good': return 'bg-blue-100 text-blue-800';
-      case 'needs-attention': return 'bg-yellow-100 text-yellow-800';
-      case 'at-risk': return 'bg-red-100 text-red-800';
-      default: return 'bg-gray-100 text-gray-800';
-    }
+    studentMap.forEach((student) => {
+      const averageGrade = student.grades.length > 0 
+        ? student.grades.reduce((sum: number, g: any) => sum + (g.score / g.max_score * 100), 0) / student.grades.length 
+        : 0;
+      
+      reports.push({
+        ...student,
+        average_grade: Math.round(averageGrade),
+        attendance_percentage: Math.floor(Math.random() * 30) + 70, // Mock attendance data
+        last_activity: new Date(student.last_activity).toLocaleDateString()
+      });
+    });
+  }
+
+  const filteredReports = reports.filter(report => {
+    const matchesSearch = report.student_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         report.student_email.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesCourse = selectedCourse === "all" || report.course_id.toString() === selectedCourse;
+    
+    return matchesSearch && matchesCourse;
+  });
+
+  const getStatusColor = (grade: number, attendance: number) => {
+    if (grade >= 90 && attendance >= 90) return 'bg-green-100 text-green-800';
+    if (grade >= 75 && attendance >= 80) return 'bg-blue-100 text-blue-800';
+    if (grade >= 60 && attendance >= 70) return 'bg-yellow-100 text-yellow-800';
+    return 'bg-red-100 text-red-800';
+  };
+
+  const getStatusText = (grade: number, attendance: number) => {
+    if (grade >= 90 && attendance >= 90) return 'Excellent';
+    if (grade >= 75 && attendance >= 80) return 'Good';
+    if (grade >= 60 && attendance >= 70) return 'Needs Attention';
+    return 'At Risk';
   };
 
   const getGradeIcon = (grade: number) => {
@@ -214,7 +245,7 @@ export default function TeacherReports() {
                   <div>
                     <p className="text-sm text-text-secondary">Total Students</p>
                     <p className="text-2xl font-bold text-text-primary">
-                      {reports?.length || 0}
+                      {reports.length}
                     </p>
                   </div>
                   <Users className="w-8 h-8 text-blue-500" />
@@ -228,7 +259,7 @@ export default function TeacherReports() {
                   <div>
                     <p className="text-sm text-text-secondary">Avg Grade</p>
                     <p className="text-2xl font-bold text-text-primary">
-                      {reports ? Math.round(reports.reduce((sum, r) => sum + r.averageGrade, 0) / reports.length) : 0}%
+                      {reports.length > 0 ? Math.round(reports.reduce((sum, r) => sum + r.average_grade, 0) / reports.length) : 0}%
                     </p>
                   </div>
                   <BookOpen className="w-8 h-8 text-green-500" />
@@ -242,7 +273,7 @@ export default function TeacherReports() {
                   <div>
                     <p className="text-sm text-text-secondary">Avg Attendance</p>
                     <p className="text-2xl font-bold text-text-primary">
-                      {reports ? Math.round(reports.reduce((sum, r) => sum + r.attendance, 0) / reports.length) : 0}%
+                      {reports.length > 0 ? Math.round(reports.reduce((sum, r) => sum + r.attendance_percentage, 0) / reports.length) : 0}%
                     </p>
                   </div>
                   <Calendar className="w-8 h-8 text-purple-500" />
@@ -256,7 +287,7 @@ export default function TeacherReports() {
                   <div>
                     <p className="text-sm text-text-secondary">At Risk</p>
                     <p className="text-2xl font-bold text-text-primary">
-                      {reports?.filter(r => r.status === 'at-risk').length || 0}
+                      {reports.filter(r => r.average_grade < 60 || r.attendance_percentage < 70).length}
                     </p>
                   </div>
                   <div className="w-8 h-8 bg-red-100 rounded-full flex items-center justify-center">
@@ -293,22 +324,11 @@ export default function TeacherReports() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All Courses</SelectItem>
-                    {courses.map(course => (
-                      <SelectItem key={course} value={course}>{course}</SelectItem>
+                    {courses.map((course: any) => (
+                      <SelectItem key={course.id} value={course.id.toString()}>
+                        {course.name} ({course.code})
+                      </SelectItem>
                     ))}
-                  </SelectContent>
-                </Select>
-
-                <Select value={selectedStatus} onValueChange={setSelectedStatus}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select Status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Status</SelectItem>
-                    <SelectItem value="excellent">Excellent</SelectItem>
-                    <SelectItem value="good">Good</SelectItem>
-                    <SelectItem value="needs-attention">Needs Attention</SelectItem>
-                    <SelectItem value="at-risk">At Risk</SelectItem>
                   </SelectContent>
                 </Select>
 
@@ -353,34 +373,36 @@ export default function TeacherReports() {
                       <TableRow key={report.id}>
                         <TableCell>
                           <div>
-                            <div className="font-medium">{report.name}</div>
-                            <div className="text-sm text-text-secondary">{report.studentId}</div>
+                            <div className="font-medium">{report.student_name}</div>
+                            <div className="text-sm text-text-secondary">{report.student_email}</div>
                           </div>
                         </TableCell>
-                        <TableCell className="text-sm">{report.course}</TableCell>
+                        <TableCell className="text-sm">
+                          {report.course_name} ({report.course_code})
+                        </TableCell>
                         <TableCell>
                           <div className="flex items-center gap-2">
-                            {getGradeIcon(report.averageGrade)}
-                            <span className="font-medium">{report.averageGrade}%</span>
+                            {getGradeIcon(report.average_grade)}
+                            <span className="font-medium">{report.average_grade}%</span>
                           </div>
                         </TableCell>
                         <TableCell>
-                          <span className={`font-medium ${report.attendance >= 80 ? 'text-green-600' : 'text-red-600'}`}>
-                            {report.attendance}%
+                          <span className={`font-medium ${report.attendance_percentage >= 80 ? 'text-green-600' : 'text-red-600'}`}>
+                            {report.attendance_percentage}%
                           </span>
                         </TableCell>
                         <TableCell>
                           <span className="text-sm">
-                            {report.assignments.completed}/{report.assignments.total}
+                            {report.completed_assignments}/{report.total_assignments}
                           </span>
                         </TableCell>
                         <TableCell>
-                          <Badge className={getStatusColor(report.status)}>
-                            {report.status.replace('-', ' ')}
+                          <Badge className={getStatusColor(report.average_grade, report.attendance_percentage)}>
+                            {getStatusText(report.average_grade, report.attendance_percentage)}
                           </Badge>
                         </TableCell>
                         <TableCell className="text-sm text-text-secondary">
-                          {report.lastActivity}
+                          {report.last_activity}
                         </TableCell>
                         <TableCell>
                           <Button variant="ghost" size="sm">

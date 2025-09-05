@@ -11,10 +11,10 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { useUser } from "@/contexts/UserContext";
 import { useSidebar } from "@/contexts/SidebarContext";
 import type { DashboardStats, CalendarEvent, GradeDistribution } from "@/types/dashboard";
-import { 
-  GraduationCap, 
-  Users, 
-  BookOpen, 
+import {
+  GraduationCap,
+  Users,
+  BookOpen,
   Calendar,
   TrendingUp,
   UserCheck
@@ -162,23 +162,23 @@ export default function AcademicDashboard() {
 
   return (
     <div className="min-h-screen bg-content-bg">
-      <Header 
+      <Header
         onMenuToggle={toggleSidebar}
         isMobile={isMobile}
         isCollapsed={sidebarCollapsed}
         onToggleCollapse={toggleCollapse}
         sidebarWidth={sidebarCollapsed ? 64 : 256}
       />
-      
+
       <div className="flex pt-16">
-        <SlidingSidebar 
+        <SlidingSidebar
           isOpen={sidebarOpen}
           onClose={() => setSidebarOpen(false)}
           isMobile={isMobile}
           isCollapsed={sidebarCollapsed}
           onToggleCollapse={toggleCollapse}
         />
-        
+
         <main className={`flex-1 p-3 sm:p-4 lg:p-6 transition-all duration-300 ${getMainMargin()}`}>
           {/* Welcome Section */}
           <div className="mb-4 sm:mb-6">
@@ -187,8 +187,8 @@ export default function AcademicDashboard() {
             </h1>
             <p className="text-sm sm:text-base text-text-secondary">
               {isStudent ? "Track your academic progress and stay updated with your courses." :
-               isTeacher ? "Manage your classes, track student progress, and schedule exams." :
-               "Manage the academic system and monitor overall performance."}
+                isTeacher ? "Manage your classes, track student progress, and schedule exams." :
+                  "Manage the academic system and monitor overall performance."}
             </p>
           </div>
 
@@ -212,7 +212,7 @@ export default function AcademicDashboard() {
             <div className="grid grid-cols-1 xl:grid-cols-3 gap-4 sm:gap-6">
               {/* Student Academic Calendar */}
               <div className="xl:col-span-2 order-2 xl:order-1">
-                <AcademicCalendar 
+                <AcademicCalendar
                   events={events || []}
                   isLoading={eventsLoading}
                 />
@@ -221,7 +221,7 @@ export default function AcademicDashboard() {
               {/* Right Side - Charts and Quick Actions */}
               <div className="space-y-4 sm:space-y-6 order-1 xl:order-2">
                 <ActionButtons />
-                
+
                 {/* Personal Grade Chart */}
                 <InteractiveChart
                   title="My Grades"
@@ -230,7 +230,7 @@ export default function AcademicDashboard() {
                   filterOptions={['current term', 'all terms']}
                   isLoading={gradesLoading}
                 />
-                
+
                 {/* Attendance Summary */}
                 <Card>
                   <CardHeader className="pb-3">
@@ -265,7 +265,7 @@ export default function AcademicDashboard() {
               <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 sm:gap-6">
                 {/* Grade Management */}
                 <GradeManagement isLoading={statsLoading} />
-                
+
                 {/* Class Performance Chart */}
                 <InteractiveChart
                   title="Class Performance"
@@ -275,10 +275,10 @@ export default function AcademicDashboard() {
                   isLoading={gradesLoading}
                 />
               </div>
-              
+
               {/* Exam Calendar */}
               <ExamCalendar isLoading={eventsLoading} />
-              
+
               {/* Recent Activity */}
               <Card>
                 <CardHeader className="pb-3">
@@ -314,7 +314,7 @@ export default function AcademicDashboard() {
           ) : null}
         </main>
       </div>
-      
+
       {/* Role Switcher for Demo */}
       <RoleSwitcher />
     </div>

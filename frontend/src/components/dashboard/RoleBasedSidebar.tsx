@@ -137,8 +137,8 @@ export default function RoleBasedSidebar({ isOpen, onClose, isMobile }: SidebarP
           <div className="mt-8 px-4 py-3 border-t border-sidebar-hover">
             <div className="flex items-center space-x-3">
               <img 
-                src={user.profileImage || 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=100&h=100'}
-                alt="Profile"
+                src={user.profileImage}
+                alt={`${user.name}'s Profile`}
                 className="w-8 h-8 rounded-full object-cover"
               />
               <div className="flex-1 min-w-0">

@@ -9,6 +9,7 @@ export interface User {
   email: string;
   role: UserRole;
   profileImage?: string;
+  studentId?: string;
   employeeId?: string;
   department?: string;
   phone?: string;
@@ -36,12 +37,30 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
+  // Generate initials from name for profile image
+  const generateInitials = (name: string): string => {
+    return name
+      .split(' ')
+      .map(word => word.charAt(0).toUpperCase())
+      .join('')
+      .slice(0, 2);
+  };
+
+  // Generate a profile image URL based on initials
+  const generateProfileImage = (name: string): string => {
+    const initials = generateInitials(name);
+    // Using UI Avatars service to generate profile images with initials
+    return `https://ui-avatars.com/api/?name=${encodeURIComponent(initials)}&background=ec4899&color=ffffff&size=100&font-size=0.6`;
+  };
+
   // Convert API user to local user format
   const convertApiUser = (apiUser: ApiUser): User => ({
     id: apiUser.id,
     name: apiUser.name,
     email: apiUser.email,
     role: apiUser.role.name as UserRole,
+    profileImage: generateProfileImage(apiUser.name),
+    studentId: apiUser.employeeId, // Use employeeId as studentId for students
     employeeId: apiUser.employeeId,
     department: apiUser.department,
     phone: apiUser.phone,

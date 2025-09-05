@@ -1,10 +1,11 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import Header from "@/components/dashboard/Header";
 import SlidingSidebar from "@/components/dashboard/SlidingSidebar";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useUser } from "@/contexts/UserContext";
 import { useSidebar } from "@/contexts/SidebarContext";
+import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -39,21 +40,26 @@ import {
 } from "@/components/ui/table";
 
 interface AttendanceRecord {
-  id: string;
-  studentId: string;
-  name: string;
-  course: string;
+  id: number;
+  student_id: number;
+  course_id: number;
   date: string;
   status: 'present' | 'absent' | 'late' | 'excused';
-  timeIn?: string;
-  notes?: string;
+  student_name?: string;
+  student_email?: string;
+  course_name?: string;
+  course_code?: string;
+  created_at: string;
 }
 
 interface AttendanceSummary {
-  studentId: string;
-  name: string;
-  course: string;
-  totalClasses: number;
+  student_id: number;
+  student_name: string;
+  student_email: string;
+  course_id: number;
+  course_name: string;
+  course_code: string;
+  total_classes: number;
   present: number;
   absent: number;
   late: number;
@@ -64,6 +70,8 @@ interface AttendanceSummary {
 export default function TeacherAttendance() {
   const isMobile = useIsMobile();
   const { user } = useUser();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
   const {
     sidebarOpen,
     sidebarCollapsed,
@@ -77,73 +85,92 @@ export default function TeacherAttendance() {
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [viewMode, setViewMode] = useState<'daily' | 'summary'>('daily');
 
-  // Mock data - replace with actual API calls
-  const { data: attendanceRecords, isLoading: recordsLoading } = useQuery<AttendanceRecord[]>({
-    queryKey: ["/api/teacher/attendance/records", selectedDate, selectedCourse],
-    queryFn: () => Promise.resolve([
-      {
-        id: "1",
-        studentId: "STU001",
-        name: "Alice Johnson",
-        course: "Advanced Mathematics",
-        date: selectedDate,
-        status: "present",
-        timeIn: "09:00 AM"
-      },
-      {
-        id: "2", 
-        studentId: "STU002",
-        name: "Bob Smith",
-        course: "Advanced Mathematics", 
-        date: selectedDate,
-        status: "late",
-        timeIn: "09:15 AM"
-      }
-    ])
-  }); 
- const { data: attendanceSummary, isLoading: summaryLoading } = useQuery<AttendanceSummary[]>({
-    queryKey: ["/api/teacher/attendance/summary", selectedCourse],
-    queryFn: () => Promise.resolve([
-      {
-        studentId: "STU001",
-        name: "Alice Johnson",
-        course: "Advanced Mathematics",
-        totalClasses: 20,
-        present: 18,
-        absent: 1,
-        late: 1,
-        excused: 0,
-        percentage: 90
-      },
-      {
-        studentId: "STU002",
-        name: "Bob Smith",
-        course: "Advanced Mathematics",
-        totalClasses: 20,
-        present: 15,
-        absent: 3,
-        late: 2,
-        excused: 0,
-        percentage: 75
-      }
-    ])
+  // Fetch teacher's courses
+  const { data: coursesResponse } = useQuery({
+    queryKey: ["/api/courses/instructor", user?.id],
+    queryFn: async () => {
+      const response = await fetch(`/api/courses/instructor/${user?.id}`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+      if (!response.ok) throw new Error('Failed to fetch courses');
+      return response.json();
+    },
+    enabled: !!user?.id
   });
 
-  const courses = ["Advanced Mathematics", "Physics Laboratory", "Chemistry Fundamentals", "Biology Basics"];
+  const courses = coursesResponse?.courses || [];
 
-  const filteredRecords = attendanceRecords?.filter(record => {
-    const matchesSearch = record.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         record.studentId.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesCourse = selectedCourse === "all" || record.course === selectedCourse;
-    return matchesSearch && matchesCourse;
-  }) || [];
+  // Fetch attendance records
+  const { data: attendanceResponse, isLoading: recordsLoading } = useQuery({
+    queryKey: ["/api/attendance", selectedDate, selectedCourse],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (selectedDate) params.append('date', selectedDate);
+      if (selectedCourse !== "all") params.append('courseId', selectedCourse);
+      
+      const response = await fetch(`/api/attendance?${params.toString()}`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+      if (!response.ok) throw new Error('Failed to fetch attendance');
+      return response.json();
+    },
+    enabled: !!user?.id
+  });
 
-  const filteredSummary = attendanceSummary?.filter(summary => {
-    const matchesSearch = summary.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         summary.studentId.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesCourse = selectedCourse === "all" || summary.course === selectedCourse;
+  const attendanceRecords = attendanceResponse?.data || []; 
+  // Generate attendance summary from records
+  const attendanceSummary: AttendanceSummary[] = [];
+  if (attendanceRecords.length > 0) {
+    const studentMap = new Map();
+    
+    attendanceRecords.forEach((record: AttendanceRecord) => {
+      const key = `${record.student_id}-${record.course_id}`;
+      if (!studentMap.has(key)) {
+        studentMap.set(key, {
+          student_id: record.student_id,
+          student_name: record.student_name || 'Unknown Student',
+          student_email: record.student_email || '',
+          course_id: record.course_id,
+          course_name: record.course_name || 'Unknown Course',
+          course_code: record.course_code || '',
+          total_classes: 0,
+          present: 0,
+          absent: 0,
+          late: 0,
+          excused: 0
+        });
+      }
+      
+      const student = studentMap.get(key);
+      student.total_classes++;
+      student[record.status]++;
+    });
+
+    studentMap.forEach((student) => {
+      student.percentage = student.total_classes > 0 
+        ? Math.round((student.present / student.total_classes) * 100) 
+        : 0;
+      attendanceSummary.push(student);
+    });
+  }
+
+  const filteredRecords = attendanceRecords.filter((record: AttendanceRecord) => {
+    const matchesSearch = (record.student_name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         (record.student_email || '').toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesCourse = selectedCourse === "all" || record.course_id.toString() === selectedCourse;
     return matchesSearch && matchesCourse;
-  }) || [];
+  });
+
+  const filteredSummary = attendanceSummary.filter((summary: AttendanceSummary) => {
+    const matchesSearch = summary.student_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         summary.student_email.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesCourse = selectedCourse === "all" || summary.course_id.toString() === selectedCourse;
+    return matchesSearch && matchesCourse;
+  });
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -170,9 +197,53 @@ export default function TeacherAttendance() {
     return sidebarCollapsed ? 'ml-16' : 'ml-64';
   };
 
-  const markAttendance = (studentId: string, status: string) => {
-    // Implementation for marking attendance
-    console.log(`Marking ${studentId} as ${status}`);
+  // Mutation for marking attendance
+  const markAttendanceMutation = useMutation({
+    mutationFn: async ({ studentId, courseId, date, status }: {
+      studentId: number;
+      courseId: number;
+      date: string;
+      status: string;
+    }) => {
+      const response = await fetch('/api/attendance', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify({
+          studentId,
+          courseId,
+          date,
+          status
+        })
+      });
+      if (!response.ok) throw new Error('Failed to mark attendance');
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/attendance"] });
+      toast({
+        title: "Success",
+        description: "Attendance marked successfully",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: "Failed to mark attendance",
+        variant: "destructive",
+      });
+    }
+  });
+
+  const markAttendance = (studentId: number, courseId: number, status: string) => {
+    markAttendanceMutation.mutate({
+      studentId,
+      courseId,
+      date: selectedDate,
+      status
+    });
   };
 
   const exportAttendance = () => {
@@ -240,7 +311,7 @@ export default function TeacherAttendance() {
                   <div>
                     <p className="text-sm text-text-secondary">Total Students</p>
                     <p className="text-2xl font-bold text-text-primary">
-                      {attendanceSummary?.length || 0}
+                      {attendanceSummary.length}
                     </p>
                   </div>
                   <Users className="w-8 h-8 text-blue-500" />
@@ -254,7 +325,7 @@ export default function TeacherAttendance() {
                   <div>
                     <p className="text-sm text-text-secondary">Present Today</p>
                     <p className="text-2xl font-bold text-text-primary">
-                      {attendanceRecords?.filter(r => r.status === 'present').length || 0}
+                      {attendanceRecords.filter((r: AttendanceRecord) => r.status === 'present').length}
                     </p>
                   </div>
                   <UserCheck className="w-8 h-8 text-green-500" />
@@ -268,7 +339,7 @@ export default function TeacherAttendance() {
                   <div>
                     <p className="text-sm text-text-secondary">Absent Today</p>
                     <p className="text-2xl font-bold text-text-primary">
-                      {attendanceRecords?.filter(r => r.status === 'absent').length || 0}
+                      {attendanceRecords.filter((r: AttendanceRecord) => r.status === 'absent').length}
                     </p>
                   </div>
                   <UserX className="w-8 h-8 text-red-500" />
@@ -282,7 +353,7 @@ export default function TeacherAttendance() {
                   <div>
                     <p className="text-sm text-text-secondary">Avg Attendance</p>
                     <p className="text-2xl font-bold text-text-primary">
-                      {attendanceSummary ? Math.round(attendanceSummary.reduce((sum, s) => sum + s.percentage, 0) / attendanceSummary.length) : 0}%
+                      {attendanceSummary.length > 0 ? Math.round(attendanceSummary.reduce((sum, s) => sum + s.percentage, 0) / attendanceSummary.length) : 0}%
                     </p>
                   </div>
                   <TrendingUp className="w-8 h-8 text-purple-500" />
@@ -317,8 +388,10 @@ export default function TeacherAttendance() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All Courses</SelectItem>
-                    {courses.map(course => (
-                      <SelectItem key={course} value={course}>{course}</SelectItem>
+                    {courses.map((course: any) => (
+                      <SelectItem key={course.id} value={course.id.toString()}>
+                        {course.name} ({course.code})
+                      </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -371,11 +444,13 @@ export default function TeacherAttendance() {
                         <TableRow key={record.id}>
                           <TableCell>
                             <div>
-                              <div className="font-medium">{record.name}</div>
-                              <div className="text-sm text-text-secondary">{record.studentId}</div>
+                              <div className="font-medium">{record.student_name}</div>
+                              <div className="text-sm text-text-secondary">{record.student_email}</div>
                             </div>
                           </TableCell>
-                          <TableCell className="text-sm">{record.course}</TableCell>
+                          <TableCell className="text-sm">
+                            {record.course_name} ({record.course_code})
+                          </TableCell>
                           <TableCell>
                             <div className="flex items-center gap-2">
                               {getStatusIcon(record.status)}
@@ -384,28 +459,33 @@ export default function TeacherAttendance() {
                               </Badge>
                             </div>
                           </TableCell>
-                          <TableCell className="text-sm">{record.timeIn || '-'}</TableCell>
-                          <TableCell className="text-sm">{record.notes || '-'}</TableCell>
+                          <TableCell className="text-sm">
+                            {new Date(record.created_at).toLocaleTimeString()}
+                          </TableCell>
+                          <TableCell className="text-sm">-</TableCell>
                           <TableCell>
                             <div className="flex gap-1">
                               <Button 
                                 size="sm" 
                                 variant="outline"
-                                onClick={() => markAttendance(record.studentId, 'present')}
+                                onClick={() => markAttendance(record.student_id, record.course_id, 'present')}
+                                disabled={markAttendanceMutation.isPending}
                               >
                                 P
                               </Button>
                               <Button 
                                 size="sm" 
                                 variant="outline"
-                                onClick={() => markAttendance(record.studentId, 'absent')}
+                                onClick={() => markAttendance(record.student_id, record.course_id, 'absent')}
+                                disabled={markAttendanceMutation.isPending}
                               >
                                 A
                               </Button>
                               <Button 
                                 size="sm" 
                                 variant="outline"
-                                onClick={() => markAttendance(record.studentId, 'late')}
+                                onClick={() => markAttendance(record.student_id, record.course_id, 'late')}
+                                disabled={markAttendanceMutation.isPending}
                               >
                                 L
                               </Button>
@@ -424,7 +504,7 @@ export default function TeacherAttendance() {
                 <CardTitle>Attendance Summary</CardTitle>
               </CardHeader>
               <CardContent>
-                {summaryLoading ? (
+                {recordsLoading ? (
                   <div className="space-y-4">
                     {Array.from({ length: 5 }).map((_, index) => (
                       <div key={index} className="animate-pulse">
@@ -447,15 +527,17 @@ export default function TeacherAttendance() {
                     </TableHeader>
                     <TableBody>
                       {filteredSummary.map((summary) => (
-                        <TableRow key={summary.studentId}>
+                        <TableRow key={`${summary.student_id}-${summary.course_id}`}>
                           <TableCell>
                             <div>
-                              <div className="font-medium">{summary.name}</div>
-                              <div className="text-sm text-text-secondary">{summary.studentId}</div>
+                              <div className="font-medium">{summary.student_name}</div>
+                              <div className="text-sm text-text-secondary">{summary.student_email}</div>
                             </div>
                           </TableCell>
-                          <TableCell className="text-sm">{summary.course}</TableCell>
-                          <TableCell>{summary.totalClasses}</TableCell>
+                          <TableCell className="text-sm">
+                            {summary.course_name} ({summary.course_code})
+                          </TableCell>
+                          <TableCell>{summary.total_classes}</TableCell>
                           <TableCell className="text-green-600">{summary.present}</TableCell>
                           <TableCell className="text-red-600">{summary.absent}</TableCell>
                           <TableCell className="text-yellow-600">{summary.late}</TableCell>

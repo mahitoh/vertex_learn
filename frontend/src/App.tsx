@@ -22,6 +22,9 @@ import Profile from "@/pages/profile";
 import Settings from "@/pages/settings";
 import TeacherGrades from "@/pages/teacher/TeacherGrades";
 import TeacherExams from "@/pages/teacher/TeacherExams";
+import TeacherCourses from "@/pages/teacher/TeacherCourses";
+import TeacherReports from "@/pages/teacher/TeacherReports";
+import TeacherAttendance from "@/pages/teacher/TeacherAttendance";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -139,6 +142,21 @@ const AppRoutes = () => (
     <Route path="/teacher/exams" element={
       <ProtectedRoute requiredRole="teacher">
         <TeacherExams />
+      </ProtectedRoute>
+    } />
+    <Route path="/teacher/courses" element={
+      <ProtectedRoute requiredRole="teacher">
+        <TeacherCourses />
+      </ProtectedRoute>
+    } />
+    <Route path="/teacher/reports" element={
+      <ProtectedRoute requiredRole="teacher">
+        <TeacherReports />
+      </ProtectedRoute>
+    } />
+    <Route path="/teacher/attendance" element={
+      <ProtectedRoute requiredRole="teacher">
+        <TeacherAttendance />
       </ProtectedRoute>
     } />
     {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}

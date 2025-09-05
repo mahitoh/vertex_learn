@@ -1,29 +1,62 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Eye, EyeOff, GraduationCap, ArrowLeft } from "lucide-react";
+import { Eye, EyeOff, GraduationCap, ArrowLeft, AlertCircle } from "lucide-react";
+import { useUser } from "@/contexts/UserContext";
+import { ApiError } from "@/services/api";
 
 const Login = () => {
   const [showPassword, setShowPassword] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     email: "",
     password: "",
   });
+
+  const { login } = useUser();
+  const navigate = useNavigate();
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({
       ...formData,
       [e.target.name]: e.target.value,
     });
+    // Clear error when user starts typing
+    if (error) setError(null);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Handle login logic here
-    console.log("Login form submitted:", formData);
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      await login(formData.email, formData.password);
+      navigate('/dashboard'); // Redirect to dashboard after successful login
+    } catch (err) {
+      if (err instanceof ApiError) {
+        if (err.status === 403) {
+          // Handle validation status errors
+          if (err.data?.status === 'pending') {
+            setError('Your account is pending admin approval. Please wait for validation.');
+          } else if (err.data?.status === 'rejected') {
+            setError('Your account has been rejected. Please contact administration.');
+          } else {
+            setError(err.message);
+          }
+        } else {
+          setError(err.message);
+        }
+      } else {
+        setError('An unexpected error occurred. Please try again.');
+      }
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -52,6 +85,13 @@ const Login = () => {
           </CardHeader>
 
           <CardContent className="space-y-6">
+            {error && (
+              <div className="flex items-center gap-2 p-3 text-sm text-red-600 bg-red-50 border border-red-200 rounded-md">
+                <AlertCircle className="h-4 w-4" />
+                {error}
+              </div>
+            )}
+            
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="email">Email Address</Label>
@@ -115,8 +155,12 @@ const Login = () => {
                 </Link>
               </div>
 
-              <Button type="submit" className="w-full h-11 bg-primary hover:bg-primary-dark">
-                Sign In
+              <Button 
+                type="submit" 
+                className="w-full h-11 bg-primary hover:bg-primary-dark"
+                disabled={isLoading}
+              >
+                {isLoading ? 'Signing In...' : 'Sign In'}
               </Button>
             </form>
 

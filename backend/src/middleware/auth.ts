@@ -1,171 +1,165 @@
-import { Request, Response, NextFunction } from "express";
-import jwt from "jsonwebtoken";
-import { CustomError } from "./errorHandler";
-import { prisma } from "../config/prisma";
+import { Request, Response, NextFunction } from 'express';
+import jwt from 'jsonwebtoken';
+import db from '../config/database.js';
 
-// Extend Request interface to include user
-declare global {
-  namespace Express {
-    interface Request {
-      user?: {
-        user_id: number;
-        email: string;
-        role: "admin" | "student" | "staff";
-        first_name?: string;
-        last_name?: string;
-      };
-    }
-  }
+export interface AuthenticatedRequest extends Request {
+  user?: {
+    id: number;
+    email: string;
+    role: string;
+    permissions: any;
+    userId?: number; // Add this for compatibility
+  };
 }
 
-interface JWTPayload {
-  user_id: number;
-  email: string;
-  role: "admin" | "student" | "staff";
-  iat?: number;
-  exp?: number;
-}
-
-/**
- * Middleware to authenticate JWT token
- */
-export const authenticateToken = async (
-  req: Request,
+// JWT Authentication Middleware
+export const authenticateJWT = async (
+  req: AuthenticatedRequest,
   res: Response,
   next: NextFunction
-): Promise<void> => {
+): Promise<void | Response> => {
   try {
-    let token: string | undefined;
-
-    // Check for token in Authorization header
     const authHeader = req.headers.authorization;
-    if (authHeader && authHeader.startsWith("Bearer ")) {
-      token = authHeader.substring(7);
+    
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ 
+        error: 'Access denied. No token provided.' 
+      });
     }
 
-    // Check for token in cookies
-    if (!token && req.cookies.token) {
-      token = req.cookies.token;
+    const token = authHeader.substring(7); // Remove 'Bearer ' prefix
+    
+    if (!process.env.JWT_SECRET) {
+      throw new Error('JWT_SECRET not configured');
     }
 
-    if (!token) {
-      throw new CustomError("Access token required", 401);
+    const decoded = jwt.verify(token, process.env.JWT_SECRET) as any;
+    
+    // Get user with role and permissions
+    const queryText = `
+      SELECT 
+        u.id, 
+        u.email, 
+        u.is_active,
+        u.validation_status,
+        r.name as role_name, 
+        r.description as role_description
+      FROM users u
+      JOIN roles r ON u.role_id = r.id
+      WHERE u.id = ?
+    `;
+    
+    const result = await db.query(queryText, [decoded.userId]);
+    const user = result.rows[0];
+    
+    if (!user || !user.is_active) {
+      return res.status(401).json({ 
+        error: 'Invalid or inactive user token.' 
+      });
     }
 
-    // Verify token
-    const decoded = jwt.verify(token, process.env.JWT_SECRET!) as JWTPayload;
-
-    // Get user from database
-    const user = await prisma.user.findUnique({
-      where: { user_id: decoded.user_id },
-      select: {
-        user_id: true,
-        email: true,
-        role: true,
-        first_name: true,
-        last_name: true,
-        is_active: true,
-      },
+    console.log('User validation check:', {
+      userId: user.id,
+      email: user.email,
+      validation_status: user.validation_status,
+      role: user.role_name
     });
 
-    if (!user) {
-      throw new CustomError("User not found", 401);
+    if (user.validation_status !== 'approved') {
+      return res.status(403).json({ 
+        error: 'Account not validated. Please wait for admin approval.',
+        debug: {
+          userId: user.id,
+          email: user.email,
+          validation_status: user.validation_status
+        }
+      });
     }
 
-    if (!user.is_active) {
-      throw new CustomError("Account is deactivated", 401);
-    }
-
-    // Add user to request object
     req.user = {
-      user_id: user.user_id,
+      id: user.id,
+      userId: user.id, // Add for compatibility
       email: user.email,
-      role: user.role,
-      first_name: user.first_name ?? undefined,
-      last_name: user.last_name ?? undefined,
+      role: user.role_name,
+      permissions: user.role_description
     };
 
     next();
+    return;
   } catch (error) {
     if (error instanceof jwt.JsonWebTokenError) {
-      next(new CustomError("Invalid token", 401));
-    } else if (error instanceof jwt.TokenExpiredError) {
-      next(new CustomError("Token expired", 401));
-    } else {
-      next(error);
+      return res.status(401).json({ 
+        error: 'Invalid token.' 
+      });
     }
+    
+    if (error instanceof jwt.TokenExpiredError) {
+      return res.status(401).json({ 
+        error: 'Token expired.' 
+      });
+    }
+
+    console.error('Auth middleware error:', error);
+    return res.status(500).json({ 
+      error: 'Internal server error during authentication.' 
+    });
   }
 };
 
-/**
- * Middleware to authorize based on user roles
- */
-export const authorizeRoles = (
-  ...roles: Array<"admin" | "student" | "staff">
-) => {
-  return (req: Request, res: Response, next: NextFunction): void => {
+// Role-based Access Control Middleware
+export const requireRole = (allowedRoles: string[]) => {
+  return (req: AuthenticatedRequest, res: Response, next: NextFunction): Response | void => {
     if (!req.user) {
-      throw new CustomError("Authentication required", 401);
+      return res.status(401).json({ 
+        error: 'Authentication required.' 
+      });
     }
 
-    if (!roles.includes(req.user.role)) {
-      throw new CustomError("Insufficient permissions", 403);
+    if (!allowedRoles.includes(req.user.role)) {
+      return res.status(403).json({ 
+        error: 'Insufficient permissions for this action.' 
+      });
     }
 
     next();
+    return;
   };
 };
 
-/**
- * Middleware for admin-only access
- */
-export const requireAdmin = authorizeRoles("admin");
+// Module Access Control Middleware
+export const requireModuleAccess = (module: string, action: string) => {
+  return (req: AuthenticatedRequest, res: Response, next: NextFunction): Response | void => {
+    if (!req.user) {
+      return res.status(401).json({ 
+        error: 'Authentication required.' 
+      });
+    }
 
-/**
- * Middleware for staff and admin access
- */
-export const requireStaffOrAdmin = authorizeRoles("staff", "admin");
+    const permissions = req.user.permissions as any;
+    
+    // Check if user has access to the module and action
+    if (!permissions || 
+        !permissions.modules?.includes(module) || 
+        !permissions.actions?.includes(action)) {
+      return res.status(403).json({ 
+        error: `Insufficient permissions for ${action} on ${module} module.` 
+      });
+    }
 
-/**
- * Middleware for student access (students can only access their own data)
- */
-export const requireStudentAccess = (
-  req: Request,
-  res: Response,
-  next: NextFunction
-): void => {
-  if (!req.user) {
-    throw new CustomError("Authentication required", 401);
-  }
-
-  const { role, user_id } = req.user;
-  const requestedUserId = parseInt(req.params.userId || req.params.id);
-
-  // Admin and staff can access any student data
-  if (role === "admin" || role === "staff") {
-    return next();
-  }
-
-  // Students can only access their own data
-  if (role === "student" && user_id === requestedUserId) {
-    return next();
-  }
-
-  throw new CustomError("Access denied", 403);
-};
-
-/**
- * Optional authentication middleware (doesn't throw error if no token)
- */
-export const optionalAuth = async (
-  req: Request,
-  res: Response,
-  next: NextFunction
-): Promise<void> => {
-  try {
-    await authenticateToken(req, res, next);
-  } catch (error) {
-    // Continue without authentication
     next();
-  }
+    return;
+  };
 };
+
+// Admin-only Access Middleware
+export const requireAdmin = requireRole(['admin']);
+
+// Teacher or Admin Access Middleware
+export const requireTeacherOrAdmin = requireRole(['teacher', 'admin']);
+
+// Student Access Middleware
+export const requireStudent = requireRole(['student']);
+
+// Staff or Admin Access Middleware
+export const requireStaffOrAdmin = requireRole(['staff', 'admin']);
+

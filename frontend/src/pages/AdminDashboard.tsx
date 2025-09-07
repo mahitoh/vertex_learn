@@ -134,6 +134,7 @@ const formatDate = (dateString: string) => {
 };
 
 const AdminDashboard = () => {
+    const navigate = useNavigate();
     const [currentView, setCurrentView] = useState('dashboard');
     const [stats, setStats] = useState({
         totalUsers: 0,
@@ -150,6 +151,7 @@ const AdminDashboard = () => {
     const menuItems = [
         { name: "Dashboard Home", view: "dashboard", icon: Home },
         { name: "User Verification", view: "verification", icon: UserCheck },
+        { name: "Finance & Marketing", view: "finance", icon: DollarSign, route: "/marketing-finance" },
         { name: "System Access", view: "system", icon: Shield },
         { name: "Employee Management", view: "employees", icon: UserCog },
         { name: "Payroll", view: "payroll", icon: DollarSign },
@@ -406,7 +408,13 @@ const AdminDashboard = () => {
                     {menuItems.map((item) => (
                         <button
                             key={item.name}
-                            onClick={() => setCurrentView(item.view)}
+                            onClick={() => {
+                                if (item.route) {
+                                    navigate(item.route);
+                                } else {
+                                    setCurrentView(item.view);
+                                }
+                            }}
                             className={`w-full flex items-center px-6 py-3 text-left transition-colors ${currentView === item.view
                                 ? 'bg-slate-700 text-white border-r-2 border-orange-500'
                                 : 'text-slate-300 hover:bg-slate-700 hover:text-white'

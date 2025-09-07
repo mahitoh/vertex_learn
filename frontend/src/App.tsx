@@ -25,6 +25,9 @@ import TeacherExams from "@/pages/teacher/TeacherExams";
 import TeacherCourses from "@/pages/teacher/TeacherCourses";
 import TeacherReports from "@/pages/teacher/TeacherReports";
 import TeacherAttendance from "@/pages/teacher/TeacherAttendance";
+import PaymentPortal from "@/pages/student/PaymentPortal";
+import FinanceDashboard from "@/pages/admin/FinanceDashboard";
+import MarketingFinanceDashboard from "@/pages/MarketingFinanceDashboard";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -157,6 +160,21 @@ const AppRoutes = () => (
     <Route path="/teacher/attendance" element={
       <ProtectedRoute requiredRole="teacher">
         <TeacherAttendance />
+      </ProtectedRoute>
+    } />
+    <Route path="/admin/finance" element={
+      <ProtectedRoute requiredRole="admin">
+        <FinanceDashboard />
+      </ProtectedRoute>
+    } />
+    <Route path="/student/payments" element={
+      <ProtectedRoute requiredRole="student">
+        <PaymentPortal />
+      </ProtectedRoute>
+    } />
+    <Route path="/marketing-finance" element={
+      <ProtectedRoute>
+        <MarketingFinanceDashboard />
       </ProtectedRoute>
     } />
     {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}

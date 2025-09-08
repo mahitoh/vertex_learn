@@ -1,5 +1,3 @@
-
-
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -33,24 +31,40 @@ import NotFound from "./pages/NotFound";
 const queryClient = new QueryClient();
 
 // Protected Route Component
-const ProtectedRoute = ({ children, requiredRole }: { children: React.ReactNode; requiredRole?: string }) => {
+const ProtectedRoute = ({
+  children,
+  requiredRole,
+}: {
+  children: React.ReactNode;
+  requiredRole?: string;
+}) => {
   const { user, isLoading } = useUser();
 
   if (isLoading) {
-    return <div className="flex items-center justify-center min-h-screen">Loading...</div>;
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        Loading...
+      </div>
+    );
   }
 
   if (!user) {
     return <Navigate to="/login" replace />;
   }
 
+  // If a specific role is required, check if user has that role
   if (requiredRole && user.role.toLowerCase() !== requiredRole.toLowerCase()) {
-    // Redirect to appropriate dashboard based on user's actual role
+    // Redirect to their appropriate dashboard based on their actual role
     const userRole = user.role.toLowerCase();
-    const redirectPath = userRole === 'admin' ? '/admin' :
-      userRole === 'teacher' ? '/teacher' :
-        userRole === 'student' ? '/student' : '/admin';
-    return <Navigate to={redirectPath} replace />;
+    if (userRole === "admin") {
+      return <Navigate to="/admin" replace />;
+    } else if (userRole === "teacher") {
+      return <Navigate to="/teacher" replace />;
+    } else if (userRole === "student") {
+      return <Navigate to="/student" replace />;
+    } else {
+      return <Navigate to="/login" replace />;
+    }
   }
 
   return <>{children}</>;
@@ -66,11 +80,11 @@ const DashboardRouter = () => {
 
   // Redirect to role-specific URLs
   switch (user.role.toLowerCase()) {
-    case 'admin':
+    case "admin":
       return <Navigate to="/admin" replace />;
-    case 'teacher':
+    case "teacher":
       return <Navigate to="/teacher" replace />;
-    case 'student':
+    case "student":
       return <Navigate to="/student" replace />;
     default:
       return <Navigate to="/admin" replace />;
@@ -82,101 +96,158 @@ const AppRoutes = () => (
     <Route path="/" element={<Index />} />
     <Route path="/login" element={<Login />} />
     <Route path="/register" element={<Register />} />
-    <Route path="/dashboard" element={
-      <ProtectedRoute>
-        <DashboardRouter />
-      </ProtectedRoute>
-    } />
-    <Route path="/admin" element={
-      <ProtectedRoute requiredRole="admin">
-        <AdminDashboard />
-      </ProtectedRoute>
-    } />
-    <Route path="/teacher" element={
-      <ProtectedRoute requiredRole="teacher">
-        <AcademicDashboard />
-      </ProtectedRoute>
-    } />
-    <Route path="/student" element={
-      <ProtectedRoute requiredRole="student">
-        <AcademicDashboard />
-      </ProtectedRoute>
-    } />
-    <Route path="/courses" element={
-      <ProtectedRoute>
-        <Courses />
-      </ProtectedRoute>
-    } />
-    <Route path="/schedule" element={
-      <ProtectedRoute>
-        <Schedule />
-      </ProtectedRoute>
-    } />
-    <Route path="/attendance" element={
-      <ProtectedRoute>
-        <Attendance />
-      </ProtectedRoute>
-    } />
-    <Route path="/grades" element={
-      <ProtectedRoute>
-        <Grades />
-      </ProtectedRoute>
-    } />
-    <Route path="/timetable" element={
-      <ProtectedRoute>
-        <Timetable />
-      </ProtectedRoute>
-    } />
-    <Route path="/profile" element={
-      <ProtectedRoute>
-        <Profile />
-      </ProtectedRoute>
-    } />
-    <Route path="/settings" element={
-      <ProtectedRoute>
-        <Settings />
-      </ProtectedRoute>
-    } />
-    <Route path="/teacher/grades" element={
-      <ProtectedRoute requiredRole="teacher">
-        <TeacherGrades />
-      </ProtectedRoute>
-    } />
-    <Route path="/teacher/exams" element={
-      <ProtectedRoute requiredRole="teacher">
-        <TeacherExams />
-      </ProtectedRoute>
-    } />
-    <Route path="/teacher/courses" element={
-      <ProtectedRoute requiredRole="teacher">
-        <TeacherCourses />
-      </ProtectedRoute>
-    } />
-    <Route path="/teacher/reports" element={
-      <ProtectedRoute requiredRole="teacher">
-        <TeacherReports />
-      </ProtectedRoute>
-    } />
-    <Route path="/teacher/attendance" element={
-      <ProtectedRoute requiredRole="teacher">
-        <TeacherAttendance />
-      </ProtectedRoute>
-    } />
-    <Route path="/admin/finance" element={
-      <ProtectedRoute requiredRole="admin">
-        <FinanceDashboard />
-      </ProtectedRoute>
-    } />
-    <Route path="/student/payments" element={
-      <ProtectedRoute requiredRole="student">
-        <PaymentPortal />
-      </ProtectedRoute>
-    } />
-    <Route path="/marketing-finance" element={
-      <ProtectedRoute>
-        <MarketingFinanceDashboard />
-      </ProtectedRoute>
-    } />
+    <Route
+      path="/dashboard"
+      element={
+        <ProtectedRoute>
+          <DashboardRouter />
+        </ProtectedRoute>
+      }
+    />
+    <Route
+      path="/admin"
+      element={
+        <ProtectedRoute requiredRole="admin">
+          <AdminDashboard />
+        </ProtectedRoute>
+      }
+    />
+    <Route
+      path="/teacher"
+      element={
+        <ProtectedRoute requiredRole="teacher">
+          <AcademicDashboard />
+        </ProtectedRoute>
+      }
+    />
+    <Route
+      path="/student"
+      element={
+        <ProtectedRoute requiredRole="student">
+          <AcademicDashboard />
+        </ProtectedRoute>
+      }
+    />
+    <Route
+      path="/courses"
+      element={
+        <ProtectedRoute>
+          <Courses />
+        </ProtectedRoute>
+      }
+    />
+    <Route
+      path="/schedule"
+      element={
+        <ProtectedRoute>
+          <Schedule />
+        </ProtectedRoute>
+      }
+    />
+    <Route
+      path="/attendance"
+      element={
+        <ProtectedRoute>
+          <Attendance />
+        </ProtectedRoute>
+      }
+    />
+    <Route
+      path="/grades"
+      element={
+        <ProtectedRoute>
+          <Grades />
+        </ProtectedRoute>
+      }
+    />
+    <Route
+      path="/timetable"
+      element={
+        <ProtectedRoute>
+          <Timetable />
+        </ProtectedRoute>
+      }
+    />
+    <Route
+      path="/profile"
+      element={
+        <ProtectedRoute>
+          <Profile />
+        </ProtectedRoute>
+      }
+    />
+    <Route
+      path="/settings"
+      element={
+        <ProtectedRoute>
+          <Settings />
+        </ProtectedRoute>
+      }
+    />
+    <Route
+      path="/teacher/grades"
+      element={
+        <ProtectedRoute requiredRole="teacher">
+          <TeacherGrades />
+        </ProtectedRoute>
+      }
+    />
+    <Route
+      path="/teacher/exams"
+      element={
+        <ProtectedRoute requiredRole="teacher">
+          <TeacherExams />
+        </ProtectedRoute>
+      }
+    />
+    <Route
+      path="/teacher/courses"
+      element={
+        <ProtectedRoute requiredRole="teacher">
+          <TeacherCourses />
+        </ProtectedRoute>
+      }
+    />
+    <Route
+      path="/teacher/reports"
+      element={
+        <ProtectedRoute requiredRole="teacher">
+          <TeacherReports />
+        </ProtectedRoute>
+      }
+    />
+    <Route
+      path="/teacher/attendance"
+      element={
+        <ProtectedRoute requiredRole="teacher">
+          <TeacherAttendance />
+        </ProtectedRoute>
+      }
+    />
+    <Route
+      path="/admin/finance"
+      element={
+        <ProtectedRoute requiredRole="admin">
+          <FinanceDashboard />
+        </ProtectedRoute>
+      }
+    />
+    <Route
+      path="/student/payments"
+      element={
+        <ProtectedRoute requiredRole="student">
+          <PaymentPortal />
+        </ProtectedRoute>
+      }
+    />
+    <Route
+      path="/marketing-finance"
+      element={
+        <ProtectedRoute>
+          <MarketingFinanceDashboard />
+        </ProtectedRoute>
+      }
+    />
     {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
     <Route path="*" element={<NotFound />} />
   </Routes>

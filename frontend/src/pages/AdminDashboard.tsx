@@ -20,6 +20,7 @@ import {
   Clock,
   AlertTriangle,
   Info,
+  Edit,
 } from "lucide-react";
 
 // API service
@@ -1135,6 +1136,1419 @@ const AdminDashboard = () => {
                       )}
                     </tbody>
                   </table>
+                </div>
+              </Card>
+            </div>
+          )}
+
+          {/* System Access Management */}
+          {!loading && !error && currentView === "system" && (
+            <div className="space-y-6">
+              <div className="flex items-center justify-between">
+                <h2 className="text-2xl font-semibold text-gray-900">
+                  System Access Management
+                </h2>
+                <Button variant="blue">Add New User</Button>
+              </div>
+
+              {/* Access Statistics */}
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                <Card className="p-6 bg-gradient-to-r from-blue-500 to-blue-600 text-white">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-blue-100 text-sm font-medium">
+                        Total Users
+                      </p>
+                      <p className="text-2xl font-bold text-white">245</p>
+                    </div>
+                    <Users className="h-8 w-8 text-blue-200" />
+                  </div>
+                </Card>
+                <Card className="p-6 bg-gradient-to-r from-green-500 to-green-600 text-white">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-green-100 text-sm font-medium">
+                        Active Sessions
+                      </p>
+                      <p className="text-2xl font-bold text-white">142</p>
+                    </div>
+                    <Shield className="h-8 w-8 text-green-200" />
+                  </div>
+                </Card>
+                <Card className="p-6 bg-gradient-to-r from-orange-500 to-orange-600 text-white">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-orange-100 text-sm font-medium">
+                        Permission Groups
+                      </p>
+                      <p className="text-2xl font-bold text-white">8</p>
+                    </div>
+                    <UserCog className="h-8 w-8 text-orange-200" />
+                  </div>
+                </Card>
+                <Card className="p-6 bg-gradient-to-r from-red-500 to-red-600 text-white">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-red-100 text-sm font-medium">
+                        Security Alerts
+                      </p>
+                      <p className="text-2xl font-bold text-white">3</p>
+                    </div>
+                    <AlertTriangle className="h-8 w-8 text-red-200" />
+                  </div>
+                </Card>
+              </div>
+
+              {/* User Access Table */}
+              <Card className="bg-white p-6">
+                <div className="flex items-center justify-between mb-6">
+                  <h3 className="text-lg font-semibold text-gray-900">
+                    User Access Control
+                  </h3>
+                  <div className="flex space-x-2">
+                    <Button variant="outline" size="sm">
+                      Filter
+                    </Button>
+                    <Button variant="outline" size="sm">
+                      Export
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b border-gray-200">
+                        <th className="text-left py-3 px-4 font-medium text-gray-600 text-sm">
+                          USER
+                        </th>
+                        <th className="text-left py-3 px-4 font-medium text-gray-600 text-sm">
+                          ROLE
+                        </th>
+                        <th className="text-left py-3 px-4 font-medium text-gray-600 text-sm">
+                          PERMISSIONS
+                        </th>
+                        <th className="text-left py-3 px-4 font-medium text-gray-600 text-sm">
+                          LAST LOGIN
+                        </th>
+                        <th className="text-left py-3 px-4 font-medium text-gray-600 text-sm">
+                          STATUS
+                        </th>
+                        <th className="text-left py-3 px-4 font-medium text-gray-600 text-sm">
+                          ACTIONS
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {[
+                        {
+                          id: 1,
+                          name: "John Smith",
+                          email: "john@school.edu",
+                          role: "Teacher",
+                          permissions: "Course Management",
+                          lastLogin: "2 hours ago",
+                          status: "Active",
+                        },
+                        {
+                          id: 2,
+                          name: "Sarah Johnson",
+                          email: "sarah@school.edu",
+                          role: "Admin",
+                          permissions: "Full Access",
+                          lastLogin: "1 day ago",
+                          status: "Active",
+                        },
+                        {
+                          id: 3,
+                          name: "Mike Chen",
+                          email: "mike@school.edu",
+                          role: "Staff",
+                          permissions: "Limited Access",
+                          lastLogin: "3 days ago",
+                          status: "Inactive",
+                        },
+                      ].map((user) => (
+                        <tr
+                          key={user.id}
+                          className="border-b border-gray-100 hover:bg-gray-50"
+                        >
+                          <td className="py-4 px-4">
+                            <div>
+                              <div className="font-medium text-gray-900">
+                                {user.name}
+                              </div>
+                              <div className="text-sm text-gray-500">
+                                {user.email}
+                              </div>
+                            </div>
+                          </td>
+                          <td className="py-4 px-4">
+                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                              {user.role}
+                            </span>
+                          </td>
+                          <td className="py-4 px-4 text-gray-600">
+                            {user.permissions}
+                          </td>
+                          <td className="py-4 px-4 text-gray-600">
+                            {user.lastLogin}
+                          </td>
+                          <td className="py-4 px-4">
+                            <span
+                              className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                                user.status === "Active"
+                                  ? "bg-green-100 text-green-800"
+                                  : "bg-red-100 text-red-800"
+                              }`}
+                            >
+                              {user.status}
+                            </span>
+                          </td>
+                          <td className="py-4 px-4">
+                            <div className="flex items-center space-x-2">
+                              <Button size="sm" variant="outline">
+                                Edit
+                              </Button>
+                              <Button size="sm" variant="red">
+                                Disable
+                              </Button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </Card>
+            </div>
+          )}
+
+          {/* Employee Management */}
+          {!loading && !error && currentView === "employees" && (
+            <div className="space-y-6">
+              <div className="flex items-center justify-between">
+                <h2 className="text-2xl font-semibold text-gray-900">
+                  Employee Management
+                </h2>
+                <Button variant="blue">Add Employee</Button>
+              </div>
+
+              {/* Employee Statistics */}
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                <Card className="p-6 bg-gradient-to-r from-purple-500 to-purple-600 text-white">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-purple-100 text-sm font-medium">
+                        Total Employees
+                      </p>
+                      <p className="text-2xl font-bold text-white">187</p>
+                    </div>
+                    <Users className="h-8 w-8 text-purple-200" />
+                  </div>
+                </Card>
+                <Card className="p-6 bg-gradient-to-r from-green-500 to-green-600 text-white">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-green-100 text-sm font-medium">
+                        Active
+                      </p>
+                      <p className="text-2xl font-bold text-white">165</p>
+                    </div>
+                    <UserCheck className="h-8 w-8 text-green-200" />
+                  </div>
+                </Card>
+                <Card className="p-6 bg-gradient-to-r from-yellow-500 to-yellow-600 text-white">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-yellow-100 text-sm font-medium">
+                        On Leave
+                      </p>
+                      <p className="text-2xl font-bold text-white">12</p>
+                    </div>
+                    <Calendar className="h-8 w-8 text-yellow-200" />
+                  </div>
+                </Card>
+                <Card className="p-6 bg-gradient-to-r from-red-500 to-red-600 text-white">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-red-100 text-sm font-medium">
+                        Inactive
+                      </p>
+                      <p className="text-2xl font-bold text-white">10</p>
+                    </div>
+                    <X className="h-8 w-8 text-red-200" />
+                  </div>
+                </Card>
+              </div>
+
+              {/* Employee Directory */}
+              <Card className="bg-white p-6">
+                <div className="flex items-center justify-between mb-6">
+                  <h3 className="text-lg font-semibold text-gray-900">
+                    Employee Directory
+                  </h3>
+                  <div className="flex space-x-2">
+                    <input
+                      type="text"
+                      placeholder="Search employees..."
+                      className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                    <Button variant="outline" size="sm">
+                      Department
+                    </Button>
+                    <Button variant="outline" size="sm">
+                      Status
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {[
+                    {
+                      id: 1,
+                      name: "Alice Johnson",
+                      position: "Math Teacher",
+                      department: "Mathematics",
+                      email: "alice@school.edu",
+                      phone: "+1234567890",
+                      status: "Active",
+                    },
+                    {
+                      id: 2,
+                      name: "Bob Wilson",
+                      position: "Science Teacher",
+                      department: "Science",
+                      email: "bob@school.edu",
+                      phone: "+1234567891",
+                      status: "Active",
+                    },
+                    {
+                      id: 3,
+                      name: "Carol Brown",
+                      position: "Librarian",
+                      department: "Library",
+                      email: "carol@school.edu",
+                      phone: "+1234567892",
+                      status: "On Leave",
+                    },
+                    {
+                      id: 4,
+                      name: "David Lee",
+                      position: "IT Specialist",
+                      department: "Technology",
+                      email: "david@school.edu",
+                      phone: "+1234567893",
+                      status: "Active",
+                    },
+                    {
+                      id: 5,
+                      name: "Emma Davis",
+                      position: "English Teacher",
+                      department: "English",
+                      email: "emma@school.edu",
+                      phone: "+1234567894",
+                      status: "Active",
+                    },
+                    {
+                      id: 6,
+                      name: "Frank Miller",
+                      position: "PE Teacher",
+                      department: "Physical Education",
+                      email: "frank@school.edu",
+                      phone: "+1234567895",
+                      status: "Inactive",
+                    },
+                  ].map((employee) => (
+                    <Card
+                      key={employee.id}
+                      className="p-4 border border-gray-200 hover:shadow-md transition-shadow"
+                    >
+                      <div className="flex items-start space-x-3">
+                        <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center">
+                          <span className="text-white font-medium">
+                            {employee.name.charAt(0)}
+                          </span>
+                        </div>
+                        <div className="flex-1">
+                          <div className="font-medium text-gray-900">
+                            {employee.name}
+                          </div>
+                          <div className="text-sm text-gray-600">
+                            {employee.position}
+                          </div>
+                          <div className="text-xs text-gray-500">
+                            {employee.department}
+                          </div>
+                          <div className="text-xs text-gray-500 mt-1">
+                            {employee.email}
+                          </div>
+                          <div className="flex items-center justify-between mt-2">
+                            <span
+                              className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                                employee.status === "Active"
+                                  ? "bg-green-100 text-green-800"
+                                  : employee.status === "On Leave"
+                                  ? "bg-yellow-100 text-yellow-800"
+                                  : "bg-red-100 text-red-800"
+                              }`}
+                            >
+                              {employee.status}
+                            </span>
+                            <div className="flex space-x-1">
+                              <Button size="sm" variant="ghost">
+                                <Eye className="h-3 w-3" />
+                              </Button>
+                              <Button size="sm" variant="ghost">
+                                <Edit className="h-3 w-3" />
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </Card>
+                  ))}
+                </div>
+              </Card>
+            </div>
+          )}
+
+          {/* Payroll Management */}
+          {!loading && !error && currentView === "payroll" && (
+            <div className="space-y-6">
+              <div className="flex items-center justify-between">
+                <h2 className="text-2xl font-semibold text-gray-900">
+                  Payroll Management
+                </h2>
+                <Button variant="blue">Generate Payroll</Button>
+              </div>
+
+              {/* Payroll Overview */}
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                <Card className="p-6 bg-gradient-to-r from-green-500 to-green-600 text-white">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-green-100 text-sm font-medium">
+                        Monthly Total
+                      </p>
+                      <p className="text-2xl font-bold text-white">$284,500</p>
+                    </div>
+                    <DollarSign className="h-8 w-8 text-green-200" />
+                  </div>
+                </Card>
+                <Card className="p-6 bg-gradient-to-r from-blue-500 to-blue-600 text-white">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-blue-100 text-sm font-medium">
+                        Employees Paid
+                      </p>
+                      <p className="text-2xl font-bold text-white">165/187</p>
+                    </div>
+                    <Users className="h-8 w-8 text-blue-200" />
+                  </div>
+                </Card>
+                <Card className="p-6 bg-gradient-to-r from-orange-500 to-orange-600 text-white">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-orange-100 text-sm font-medium">
+                        Pending
+                      </p>
+                      <p className="text-2xl font-bold text-white">22</p>
+                    </div>
+                    <Clock className="h-8 w-8 text-orange-200" />
+                  </div>
+                </Card>
+                <Card className="p-6 bg-gradient-to-r from-purple-500 to-purple-600 text-white">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-purple-100 text-sm font-medium">
+                        Next Cycle
+                      </p>
+                      <p className="text-2xl font-bold text-white">5 days</p>
+                    </div>
+                    <Calendar className="h-8 w-8 text-purple-200" />
+                  </div>
+                </Card>
+              </div>
+
+              {/* Payroll Table */}
+              <Card className="bg-white p-6">
+                <div className="flex items-center justify-between mb-6">
+                  <h3 className="text-lg font-semibold text-gray-900">
+                    Current Month Payroll
+                  </h3>
+                  <div className="flex space-x-2">
+                    <Button variant="outline" size="sm">
+                      Export CSV
+                    </Button>
+                    <Button variant="outline" size="sm">
+                      Print Reports
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b border-gray-200">
+                        <th className="text-left py-3 px-4 font-medium text-gray-600 text-sm">
+                          EMPLOYEE
+                        </th>
+                        <th className="text-left py-3 px-4 font-medium text-gray-600 text-sm">
+                          POSITION
+                        </th>
+                        <th className="text-left py-3 px-4 font-medium text-gray-600 text-sm">
+                          BASE SALARY
+                        </th>
+                        <th className="text-left py-3 px-4 font-medium text-gray-600 text-sm">
+                          DEDUCTIONS
+                        </th>
+                        <th className="text-left py-3 px-4 font-medium text-gray-600 text-sm">
+                          NET PAY
+                        </th>
+                        <th className="text-left py-3 px-4 font-medium text-gray-600 text-sm">
+                          STATUS
+                        </th>
+                        <th className="text-left py-3 px-4 font-medium text-gray-600 text-sm">
+                          ACTIONS
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {[
+                        {
+                          id: 1,
+                          name: "Alice Johnson",
+                          position: "Math Teacher",
+                          baseSalary: 4500,
+                          deductions: 450,
+                          netPay: 4050,
+                          status: "Paid",
+                        },
+                        {
+                          id: 2,
+                          name: "Bob Wilson",
+                          position: "Science Teacher",
+                          baseSalary: 4200,
+                          deductions: 420,
+                          netPay: 3780,
+                          status: "Paid",
+                        },
+                        {
+                          id: 3,
+                          name: "Carol Brown",
+                          position: "Librarian",
+                          baseSalary: 3500,
+                          deductions: 350,
+                          netPay: 3150,
+                          status: "Pending",
+                        },
+                      ].map((employee) => (
+                        <tr
+                          key={employee.id}
+                          className="border-b border-gray-100 hover:bg-gray-50"
+                        >
+                          <td className="py-4 px-4">
+                            <div className="font-medium text-gray-900">
+                              {employee.name}
+                            </div>
+                          </td>
+                          <td className="py-4 px-4 text-gray-600">
+                            {employee.position}
+                          </td>
+                          <td className="py-4 px-4 text-gray-600">
+                            ${employee.baseSalary.toLocaleString()}
+                          </td>
+                          <td className="py-4 px-4 text-gray-600">
+                            ${employee.deductions.toLocaleString()}
+                          </td>
+                          <td className="py-4 px-4 font-medium text-gray-900">
+                            ${employee.netPay.toLocaleString()}
+                          </td>
+                          <td className="py-4 px-4">
+                            <span
+                              className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                                employee.status === "Paid"
+                                  ? "bg-green-100 text-green-800"
+                                  : "bg-yellow-100 text-yellow-800"
+                              }`}
+                            >
+                              {employee.status}
+                            </span>
+                          </td>
+                          <td className="py-4 px-4">
+                            <div className="flex items-center space-x-2">
+                              <Button size="sm" variant="outline">
+                                View
+                              </Button>
+                              {employee.status === "Pending" && (
+                                <Button size="sm" variant="green">
+                                  Process
+                                </Button>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </Card>
+            </div>
+          )}
+
+          {/* Leave Management */}
+          {!loading && !error && currentView === "leave" && (
+            <div className="space-y-6">
+              <div className="flex items-center justify-between">
+                <h2 className="text-2xl font-semibold text-gray-900">
+                  Leave Management
+                </h2>
+                <Button variant="blue">Add Leave Policy</Button>
+              </div>
+
+              {/* Leave Statistics */}
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                <Card className="p-6 bg-gradient-to-r from-blue-500 to-blue-600 text-white">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-blue-100 text-sm font-medium">
+                        Pending Requests
+                      </p>
+                      <p className="text-2xl font-bold text-white">
+                        {leaveRequests.length}
+                      </p>
+                    </div>
+                    <Clock className="h-8 w-8 text-blue-200" />
+                  </div>
+                </Card>
+                <Card className="p-6 bg-gradient-to-r from-green-500 to-green-600 text-white">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-green-100 text-sm font-medium">
+                        Approved This Month
+                      </p>
+                      <p className="text-2xl font-bold text-white">28</p>
+                    </div>
+                    <Check className="h-8 w-8 text-green-200" />
+                  </div>
+                </Card>
+                <Card className="p-6 bg-gradient-to-r from-yellow-500 to-yellow-600 text-white">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-yellow-100 text-sm font-medium">
+                        Currently On Leave
+                      </p>
+                      <p className="text-2xl font-bold text-white">12</p>
+                    </div>
+                    <Calendar className="h-8 w-8 text-yellow-200" />
+                  </div>
+                </Card>
+                <Card className="p-6 bg-gradient-to-r from-red-500 to-red-600 text-white">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-red-100 text-sm font-medium">
+                        Rejected
+                      </p>
+                      <p className="text-2xl font-bold text-white">3</p>
+                    </div>
+                    <X className="h-8 w-8 text-red-200" />
+                  </div>
+                </Card>
+              </div>
+
+              {/* Leave Requests */}
+              <Card className="bg-white p-6">
+                <div className="flex items-center justify-between mb-6">
+                  <h3 className="text-lg font-semibold text-gray-900">
+                    Leave Requests
+                  </h3>
+                  <div className="flex space-x-2">
+                    <Button variant="outline" size="sm">
+                      Filter by Type
+                    </Button>
+                    <Button variant="outline" size="sm">
+                      Filter by Status
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  {leaveRequests.map((leave) => (
+                    <Card key={leave.id} className="p-4 border border-gray-200">
+                      <div className="flex items-center justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center space-x-4">
+                            <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center">
+                              <span className="text-white font-medium">
+                                {leave.name.charAt(0)}
+                              </span>
+                            </div>
+                            <div>
+                              <div className="font-medium text-gray-900">
+                                {leave.name}
+                              </div>
+                              <div className="text-sm text-gray-600">
+                                {leave.type}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex items-center space-x-6">
+                          <div className="text-center">
+                            <div className="text-sm font-medium text-gray-900">
+                              {leave.startDate}
+                            </div>
+                            <div className="text-xs text-gray-500">
+                              Start Date
+                            </div>
+                          </div>
+                          <div className="text-center">
+                            <div className="text-sm font-medium text-gray-900">
+                              {leave.endDate}
+                            </div>
+                            <div className="text-xs text-gray-500">
+                              End Date
+                            </div>
+                          </div>
+                          <div className="text-center">
+                            <div className="text-sm font-medium text-gray-900">
+                              {leave.days} days
+                            </div>
+                            <div className="text-xs text-gray-500">
+                              Duration
+                            </div>
+                          </div>
+                          <div className="flex space-x-2">
+                            <Button
+                              size="sm"
+                              variant="green"
+                              onClick={() => handleApproveLeave(leave.id)}
+                            >
+                              <Check className="h-3 w-3 mr-1" />
+                              Approve
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="red"
+                              onClick={() => handleRejectLeave(leave.id)}
+                            >
+                              <X className="h-3 w-3 mr-1" />
+                              Reject
+                            </Button>
+                            <Button size="sm" variant="outline">
+                              <Eye className="h-3 w-3 mr-1" />
+                              Details
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    </Card>
+                  ))}
+                </div>
+              </Card>
+            </div>
+          )}
+
+          {/* Performance Tracking */}
+          {!loading && !error && currentView === "performance" && (
+            <div className="space-y-6">
+              <div className="flex items-center justify-between">
+                <h2 className="text-2xl font-semibold text-gray-900">
+                  Performance Tracking
+                </h2>
+                <Button variant="blue">New Review</Button>
+              </div>
+
+              {/* Performance Overview */}
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                <Card className="p-6 bg-gradient-to-r from-green-500 to-green-600 text-white">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-green-100 text-sm font-medium">
+                        Average Rating
+                      </p>
+                      <p className="text-2xl font-bold text-white">4.2/5</p>
+                    </div>
+                    <BarChart3 className="h-8 w-8 text-green-200" />
+                  </div>
+                </Card>
+                <Card className="p-6 bg-gradient-to-r from-blue-500 to-blue-600 text-white">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-blue-100 text-sm font-medium">
+                        Reviews Completed
+                      </p>
+                      <p className="text-2xl font-bold text-white">145/187</p>
+                    </div>
+                    <Check className="h-8 w-8 text-blue-200" />
+                  </div>
+                </Card>
+                <Card className="p-6 bg-gradient-to-r from-purple-500 to-purple-600 text-white">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-purple-100 text-sm font-medium">
+                        Top Performers
+                      </p>
+                      <p className="text-2xl font-bold text-white">23</p>
+                    </div>
+                    <Users className="h-8 w-8 text-purple-200" />
+                  </div>
+                </Card>
+                <Card className="p-6 bg-gradient-to-r from-orange-500 to-orange-600 text-white">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-orange-100 text-sm font-medium">
+                        Improvement Plans
+                      </p>
+                      <p className="text-2xl font-bold text-white">8</p>
+                    </div>
+                    <AlertTriangle className="h-8 w-8 text-orange-200" />
+                  </div>
+                </Card>
+              </div>
+
+              {/* Performance Reviews */}
+              <Card className="bg-white p-6">
+                <div className="flex items-center justify-between mb-6">
+                  <h3 className="text-lg font-semibold text-gray-900">
+                    Recent Performance Reviews
+                  </h3>
+                  <Button variant="outline" size="sm">
+                    View All
+                  </Button>
+                </div>
+
+                <div className="space-y-4">
+                  {[
+                    {
+                      id: 1,
+                      name: "Alice Johnson",
+                      position: "Math Teacher",
+                      rating: 4.8,
+                      lastReview: "2024-08-15",
+                      status: "Excellent",
+                    },
+                    {
+                      id: 2,
+                      name: "Bob Wilson",
+                      position: "Science Teacher",
+                      rating: 4.2,
+                      lastReview: "2024-08-10",
+                      status: "Good",
+                    },
+                    {
+                      id: 3,
+                      name: "Carol Brown",
+                      position: "Librarian",
+                      rating: 3.9,
+                      lastReview: "2024-08-05",
+                      status: "Satisfactory",
+                    },
+                  ].map((employee) => (
+                    <Card
+                      key={employee.id}
+                      className="p-4 border border-gray-200"
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-4">
+                          <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center">
+                            <span className="text-white font-medium">
+                              {employee.name.charAt(0)}
+                            </span>
+                          </div>
+                          <div>
+                            <div className="font-medium text-gray-900">
+                              {employee.name}
+                            </div>
+                            <div className="text-sm text-gray-600">
+                              {employee.position}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex items-center space-x-6">
+                          <div className="text-center">
+                            <div className="text-2xl font-bold text-gray-900">
+                              {employee.rating}
+                            </div>
+                            <div className="text-xs text-gray-500">Rating</div>
+                          </div>
+                          <div className="text-center">
+                            <div className="text-sm font-medium text-gray-900">
+                              {employee.lastReview}
+                            </div>
+                            <div className="text-xs text-gray-500">
+                              Last Review
+                            </div>
+                          </div>
+                          <div className="text-center">
+                            <span
+                              className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                                employee.status === "Excellent"
+                                  ? "bg-green-100 text-green-800"
+                                  : employee.status === "Good"
+                                  ? "bg-blue-100 text-blue-800"
+                                  : "bg-yellow-100 text-yellow-800"
+                              }`}
+                            >
+                              {employee.status}
+                            </span>
+                          </div>
+                          <Button size="sm" variant="outline">
+                            View Details
+                          </Button>
+                        </div>
+                      </div>
+                    </Card>
+                  ))}
+                </div>
+              </Card>
+            </div>
+          )}
+
+          {/* Asset Management */}
+          {!loading && !error && currentView === "assets" && (
+            <div className="space-y-6">
+              <div className="flex items-center justify-between">
+                <h2 className="text-2xl font-semibold text-gray-900">
+                  Asset Management
+                </h2>
+                <Button variant="blue">Add Asset</Button>
+              </div>
+
+              {/* Asset Overview */}
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                <Card className="p-6 bg-gradient-to-r from-blue-500 to-blue-600 text-white">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-blue-100 text-sm font-medium">
+                        Total Assets
+                      </p>
+                      <p className="text-2xl font-bold text-white">342</p>
+                    </div>
+                    <Building className="h-8 w-8 text-blue-200" />
+                  </div>
+                </Card>
+                <Card className="p-6 bg-gradient-to-r from-green-500 to-green-600 text-white">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-green-100 text-sm font-medium">
+                        In Use
+                      </p>
+                      <p className="text-2xl font-bold text-white">289</p>
+                    </div>
+                    <Check className="h-8 w-8 text-green-200" />
+                  </div>
+                </Card>
+                <Card className="p-6 bg-gradient-to-r from-yellow-500 to-yellow-600 text-white">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-yellow-100 text-sm font-medium">
+                        Under Maintenance
+                      </p>
+                      <p className="text-2xl font-bold text-white">15</p>
+                    </div>
+                    <Settings className="h-8 w-8 text-yellow-200" />
+                  </div>
+                </Card>
+                <Card className="p-6 bg-gradient-to-r from-red-500 to-red-600 text-white">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-red-100 text-sm font-medium">
+                        Retired
+                      </p>
+                      <p className="text-2xl font-bold text-white">38</p>
+                    </div>
+                    <X className="h-8 w-8 text-red-200" />
+                  </div>
+                </Card>
+              </div>
+
+              {/* Asset Categories */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <Card className="bg-white p-6">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                    Asset Categories
+                  </h3>
+                  <div className="space-y-3">
+                    {[
+                      {
+                        category: "IT Equipment",
+                        count: 156,
+                        value: "$245,000",
+                      },
+                      { category: "Furniture", count: 89, value: "$78,000" },
+                      { category: "Vehicles", count: 12, value: "$180,000" },
+                      {
+                        category: "Laboratory Equipment",
+                        count: 45,
+                        value: "$125,000",
+                      },
+                      { category: "Audio/Visual", count: 40, value: "$65,000" },
+                    ].map((item, index) => (
+                      <div
+                        key={index}
+                        className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
+                      >
+                        <div>
+                          <div className="font-medium text-gray-900">
+                            {item.category}
+                          </div>
+                          <div className="text-sm text-gray-600">
+                            {item.count} items
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <div className="font-medium text-gray-900">
+                            {item.value}
+                          </div>
+                          <div className="text-sm text-gray-500">
+                            Total Value
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </Card>
+
+                <Card className="bg-white p-6">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                    Recent Asset Activity
+                  </h3>
+                  <div className="space-y-3">
+                    {[
+                      {
+                        action: "Asset Assigned",
+                        item: "Laptop - Dell XPS",
+                        user: "John Smith",
+                        time: "2 hours ago",
+                      },
+                      {
+                        action: "Maintenance Started",
+                        item: "Projector - Room 101",
+                        user: "IT Team",
+                        time: "4 hours ago",
+                      },
+                      {
+                        action: "Asset Returned",
+                        item: "Camera Equipment",
+                        user: "Sarah Johnson",
+                        time: "1 day ago",
+                      },
+                      {
+                        action: "New Asset Added",
+                        item: "Smart Board",
+                        user: "Admin",
+                        time: "2 days ago",
+                      },
+                      {
+                        action: "Asset Retired",
+                        item: "Old Printer",
+                        user: "IT Team",
+                        time: "3 days ago",
+                      },
+                    ].map((activity, index) => (
+                      <div key={index} className="flex items-start space-x-3">
+                        <div className="w-2 h-2 bg-blue-500 rounded-full mt-2"></div>
+                        <div className="flex-1">
+                          <div className="font-medium text-gray-900">
+                            {activity.action}
+                          </div>
+                          <div className="text-sm text-gray-600">
+                            {activity.item}
+                          </div>
+                          <div className="text-xs text-gray-500">
+                            {activity.user} • {activity.time}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </Card>
+              </div>
+            </div>
+          )}
+
+          {/* Notifications */}
+          {!loading && !error && currentView === "notifications" && (
+            <div className="space-y-6">
+              <div className="flex items-center justify-between">
+                <h2 className="text-2xl font-semibold text-gray-900">
+                  Notifications
+                </h2>
+                <div className="flex space-x-2">
+                  <Button variant="outline" size="sm">
+                    Mark All Read
+                  </Button>
+                  <Button variant="blue">Send Notification</Button>
+                </div>
+              </div>
+
+              {/* Notification Stats */}
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                <Card className="p-6 bg-gradient-to-r from-blue-500 to-blue-600 text-white">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-blue-100 text-sm font-medium">
+                        Total Notifications
+                      </p>
+                      <p className="text-2xl font-bold text-white">1,245</p>
+                    </div>
+                    <Bell className="h-8 w-8 text-blue-200" />
+                  </div>
+                </Card>
+                <Card className="p-6 bg-gradient-to-r from-orange-500 to-orange-600 text-white">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-orange-100 text-sm font-medium">
+                        Unread
+                      </p>
+                      <p className="text-2xl font-bold text-white">23</p>
+                    </div>
+                    <AlertTriangle className="h-8 w-8 text-orange-200" />
+                  </div>
+                </Card>
+                <Card className="p-6 bg-gradient-to-r from-green-500 to-green-600 text-white">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-green-100 text-sm font-medium">
+                        Sent Today
+                      </p>
+                      <p className="text-2xl font-bold text-white">45</p>
+                    </div>
+                    <Check className="h-8 w-8 text-green-200" />
+                  </div>
+                </Card>
+                <Card className="p-6 bg-gradient-to-r from-purple-500 to-purple-600 text-white">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-purple-100 text-sm font-medium">
+                        System Alerts
+                      </p>
+                      <p className="text-2xl font-bold text-white">7</p>
+                    </div>
+                    <Settings className="h-8 w-8 text-purple-200" />
+                  </div>
+                </Card>
+              </div>
+
+              {/* Notifications List */}
+              <Card className="bg-white p-6">
+                <div className="flex items-center justify-between mb-6">
+                  <h3 className="text-lg font-semibold text-gray-900">
+                    Recent Notifications
+                  </h3>
+                  <div className="flex space-x-2">
+                    <Button variant="outline" size="sm">
+                      Filter
+                    </Button>
+                    <Button variant="outline" size="sm">
+                      Search
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  {[
+                    {
+                      id: 1,
+                      type: "System",
+                      title: "Payroll Processing Complete",
+                      message:
+                        "Monthly payroll has been successfully processed for all employees.",
+                      time: "2 hours ago",
+                      read: false,
+                    },
+                    {
+                      id: 2,
+                      type: "Leave",
+                      title: "Leave Request Approved",
+                      message:
+                        "Alice Johnson's leave request has been approved by the department head.",
+                      time: "4 hours ago",
+                      read: false,
+                    },
+                    {
+                      id: 3,
+                      type: "Verification",
+                      title: "New User Verification",
+                      message:
+                        "3 new users are pending verification and require admin approval.",
+                      time: "6 hours ago",
+                      read: true,
+                    },
+                    {
+                      id: 4,
+                      type: "Asset",
+                      title: "Asset Maintenance Due",
+                      message:
+                        "5 assets are due for scheduled maintenance this week.",
+                      time: "1 day ago",
+                      read: true,
+                    },
+                    {
+                      id: 5,
+                      type: "Performance",
+                      title: "Performance Reviews Due",
+                      message:
+                        "12 employee performance reviews are due for completion.",
+                      time: "2 days ago",
+                      read: true,
+                    },
+                  ].map((notification) => (
+                    <Card
+                      key={notification.id}
+                      className={`p-4 border ${
+                        notification.read
+                          ? "border-gray-200"
+                          : "border-blue-200 bg-blue-50"
+                      }`}
+                    >
+                      <div className="flex items-start space-x-4">
+                        <div
+                          className={`w-2 h-2 rounded-full mt-2 ${
+                            notification.read ? "bg-gray-400" : "bg-blue-500"
+                          }`}
+                        ></div>
+                        <div className="flex-1">
+                          <div className="flex items-center space-x-2 mb-1">
+                            <span
+                              className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                                notification.type === "System"
+                                  ? "bg-purple-100 text-purple-800"
+                                  : notification.type === "Leave"
+                                  ? "bg-green-100 text-green-800"
+                                  : notification.type === "Verification"
+                                  ? "bg-orange-100 text-orange-800"
+                                  : notification.type === "Asset"
+                                  ? "bg-blue-100 text-blue-800"
+                                  : "bg-gray-100 text-gray-800"
+                              }`}
+                            >
+                              {notification.type}
+                            </span>
+                            <span className="text-xs text-gray-500">
+                              {notification.time}
+                            </span>
+                          </div>
+                          <div
+                            className={`font-medium ${
+                              notification.read
+                                ? "text-gray-900"
+                                : "text-gray-900 font-semibold"
+                            }`}
+                          >
+                            {notification.title}
+                          </div>
+                          <div className="text-sm text-gray-600 mt-1">
+                            {notification.message}
+                          </div>
+                        </div>
+                        <div className="flex space-x-2">
+                          {!notification.read && (
+                            <Button size="sm" variant="outline">
+                              Mark Read
+                            </Button>
+                          )}
+                          <Button size="sm" variant="ghost">
+                            <Eye className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      </div>
+                    </Card>
+                  ))}
+                </div>
+              </Card>
+            </div>
+          )}
+
+          {/* Settings */}
+          {!loading && !error && currentView === "settings" && (
+            <div className="space-y-6">
+              <div className="flex items-center justify-between">
+                <h2 className="text-2xl font-semibold text-gray-900">
+                  System Settings
+                </h2>
+                <Button variant="blue">Save Changes</Button>
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                {/* General Settings */}
+                <Card className="bg-white p-6">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                    General Settings
+                  </h3>
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        School Name
+                      </label>
+                      <input
+                        type="text"
+                        defaultValue="Vertex Learning Academy"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Academic Year
+                      </label>
+                      <input
+                        type="text"
+                        defaultValue="2024-2025"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Time Zone
+                      </label>
+                      <select className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <option>Eastern Time (ET)</option>
+                        <option>Pacific Time (PT)</option>
+                        <option>Central Time (CT)</option>
+                        <option>Mountain Time (MT)</option>
+                      </select>
+                    </div>
+                  </div>
+                </Card>
+
+                {/* Security Settings */}
+                <Card className="bg-white p-6">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                    Security Settings
+                  </h3>
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <div className="font-medium text-gray-900">
+                          Two-Factor Authentication
+                        </div>
+                        <div className="text-sm text-gray-500">
+                          Require 2FA for admin accounts
+                        </div>
+                      </div>
+                      <button className="relative inline-flex h-6 w-11 items-center rounded-full bg-blue-600">
+                        <span className="inline-block h-4 w-4 transform rounded-full bg-white transition translate-x-6"></span>
+                      </button>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <div className="font-medium text-gray-900">
+                          Session Timeout
+                        </div>
+                        <div className="text-sm text-gray-500">
+                          Auto-logout after inactivity
+                        </div>
+                      </div>
+                      <select className="px-3 py-1 border border-gray-300 rounded text-sm">
+                        <option>30 minutes</option>
+                        <option>1 hour</option>
+                        <option>2 hours</option>
+                        <option>4 hours</option>
+                      </select>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <div className="font-medium text-gray-900">
+                          Password Policy
+                        </div>
+                        <div className="text-sm text-gray-500">
+                          Enforce strong passwords
+                        </div>
+                      </div>
+                      <button className="relative inline-flex h-6 w-11 items-center rounded-full bg-blue-600">
+                        <span className="inline-block h-4 w-4 transform rounded-full bg-white transition translate-x-6"></span>
+                      </button>
+                    </div>
+                  </div>
+                </Card>
+
+                {/* Notification Settings */}
+                <Card className="bg-white p-6">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                    Notifications
+                  </h3>
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <div className="font-medium text-gray-900">
+                          Email Notifications
+                        </div>
+                        <div className="text-sm text-gray-500">
+                          Send system alerts via email
+                        </div>
+                      </div>
+                      <button className="relative inline-flex h-6 w-11 items-center rounded-full bg-blue-600">
+                        <span className="inline-block h-4 w-4 transform rounded-full bg-white transition translate-x-6"></span>
+                      </button>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <div className="font-medium text-gray-900">
+                          SMS Notifications
+                        </div>
+                        <div className="text-sm text-gray-500">
+                          Emergency alerts via SMS
+                        </div>
+                      </div>
+                      <button className="relative inline-flex h-6 w-11 items-center rounded-full bg-gray-200">
+                        <span className="inline-block h-4 w-4 transform rounded-full bg-white transition translate-x-1"></span>
+                      </button>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <div className="font-medium text-gray-900">
+                          Push Notifications
+                        </div>
+                        <div className="text-sm text-gray-500">
+                          Browser push notifications
+                        </div>
+                      </div>
+                      <button className="relative inline-flex h-6 w-11 items-center rounded-full bg-blue-600">
+                        <span className="inline-block h-4 w-4 transform rounded-full bg-white transition translate-x-6"></span>
+                      </button>
+                    </div>
+                  </div>
+                </Card>
+              </div>
+
+              {/* System Information */}
+              <Card className="bg-white p-6">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                  System Information
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-3">
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Version</span>
+                      <span className="font-medium">v2.1.0</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Database Version</span>
+                      <span className="font-medium">MySQL 8.0</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Last Backup</span>
+                      <span className="font-medium">2024-09-06 02:00 AM</span>
+                    </div>
+                  </div>
+                  <div className="space-y-3">
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Server Status</span>
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                        Online
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Storage Used</span>
+                      <span className="font-medium">245 GB / 500 GB</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Active Users</span>
+                      <span className="font-medium">142</span>
+                    </div>
+                  </div>
                 </div>
               </Card>
             </div>

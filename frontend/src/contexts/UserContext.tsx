@@ -1,13 +1,15 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import { authApi, tokenManager, User as ApiUser } from '../services/api';
+import React, { createContext, useContext, useState, useEffect } from "react";
+import { authApi, tokenManager, User as ApiUser } from "../services/api";
 
-export type UserRole = 'student' | 'teacher' | 'admin';
+export type UserRole = "super_admin" | "admin" | "teacher" | "student";
 
 export interface User {
   id: string;
   name: string;
   email: string;
   role: UserRole;
+  organizationId?: string;
+  organizationName?: string;
   profileImage?: string;
   studentId?: string;
   employeeId?: string;
@@ -26,6 +28,9 @@ interface UserContextType {
   isStudent: boolean;
   isTeacher: boolean;
   isAdmin: boolean;
+  isOrgAdmin: boolean;
+  isSuperAdmin: boolean;
+  isFinanceManager: boolean;
   login: (email: string, password: string) => Promise<void>;
   logout: () => void;
   register: (data: any) => Promise<void>;
@@ -40,9 +45,9 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   // Generate initials from name for profile image
   const generateInitials = (name: string): string => {
     return name
-      .split(' ')
-      .map(word => word.charAt(0).toUpperCase())
-      .join('')
+      .split(" ")
+      .map((word) => word.charAt(0).toUpperCase())
+      .join("")
       .slice(0, 2);
   };
 
@@ -50,25 +55,35 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   const generateProfileImage = (name: string): string => {
     const initials = generateInitials(name);
     // Using UI Avatars service to generate profile images with initials
-    return `https://ui-avatars.com/api/?name=${encodeURIComponent(initials)}&background=ec4899&color=ffffff&size=100&font-size=0.6`;
+    return `https://ui-avatars.com/api/?name=${encodeURIComponent(
+      initials
+    )}&background=ec4899&color=ffffff&size=100&font-size=0.6`;
   };
 
   // Convert API user to local user format
-  const convertApiUser = (apiUser: ApiUser): User => ({
-    id: apiUser.id,
-    name: apiUser.name,
-    email: apiUser.email,
-    role: apiUser.role.name as UserRole,
-    profileImage: generateProfileImage(apiUser.name),
-    studentId: apiUser.employeeId, // Use employeeId as studentId for students
-    employeeId: apiUser.employeeId,
-    department: apiUser.department,
-    phone: apiUser.phone,
-    address: apiUser.address,
-    dateOfBirth: apiUser.dateOfBirth,
-    hireDate: apiUser.hireDate,
-    salary: apiUser.salary,
-  });
+  const convertApiUser = (apiUser: ApiUser): User => {
+    console.log("Converting API user:", apiUser);
+    console.log("API user role:", apiUser.role);
+
+    const convertedUser = {
+      id: apiUser.id,
+      name: apiUser.name,
+      email: apiUser.email,
+      role: (apiUser.role?.name as UserRole) || null,
+      profileImage: generateProfileImage(apiUser.name),
+      studentId: apiUser.employeeId, // Use employeeId as studentId for students
+      employeeId: apiUser.employeeId,
+      department: apiUser.department,
+      phone: apiUser.phone,
+      address: apiUser.address,
+      dateOfBirth: apiUser.dateOfBirth,
+      hireDate: apiUser.hireDate,
+      salary: apiUser.salary,
+    };
+
+    console.log("Converted user:", convertedUser);
+    return convertedUser;
+  };
 
   // Load user from token on app start
   useEffect(() => {
@@ -100,10 +115,18 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
 
         // Get current user
         const response = await authApi.getCurrentUser();
-        setUser(convertApiUser(response.user));
+        console.log("Current user response:", response);
+
+        if (response && response.user) {
+          setUser(convertApiUser(response.user));
+        } else {
+          console.error("Invalid user response:", response);
+          tokenManager.clearTokens();
+        }
       } catch (error) {
-        console.error('Failed to load user:', error);
+        console.error("Failed to load user:", error);
         tokenManager.clearTokens();
+        setUser(null);
       } finally {
         setIsLoading(false);
       }
@@ -126,7 +149,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     try {
       await authApi.logout();
     } catch (error) {
-      console.error('Logout error:', error);
+      console.error("Logout error:", error);
     } finally {
       tokenManager.clearTokens();
       setUser(null);
@@ -143,22 +166,30 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const isStudent = user?.role === 'student';
-  const isTeacher = user?.role === 'teacher';
-  const isAdmin = user?.role === 'admin';
+  const isStudent = user?.role === "student";
+  const isTeacher = user?.role === "teacher";
+  const isAdmin = user?.role === "admin"; // Updated to use new simplified role
+  const isOrgAdmin = user?.role === "admin"; // Backward compatibility - maps to admin
+  const isSuperAdmin = user?.role === "super_admin";
+  const isFinanceManager = user?.role === "admin"; // Finance functions handled by admin now
 
   return (
-    <UserContext.Provider value={{
-      user,
-      setUser,
-      isLoading,
-      isStudent,
-      isTeacher,
-      isAdmin,
-      login,
-      logout,
-      register,
-    }}>
+    <UserContext.Provider
+      value={{
+        user,
+        setUser,
+        isLoading,
+        isStudent,
+        isTeacher,
+        isAdmin,
+        isOrgAdmin,
+        isSuperAdmin,
+        isFinanceManager,
+        login,
+        logout,
+        register,
+      }}
+    >
       {children}
     </UserContext.Provider>
   );
@@ -167,7 +198,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
 export function useUser() {
   const context = useContext(UserContext);
   if (context === undefined) {
-    throw new Error('useUser must be used within a UserProvider');
+    throw new Error("useUser must be used within a UserProvider");
   }
   return context;
 }

@@ -4,6 +4,26 @@
 CREATE DATABASE IF NOT EXISTS vertex_school_erp;
 USE vertex_school_erp;
 
+-- Organizations table (for multi-tenant support)
+CREATE TABLE organizations (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    name VARCHAR(255) NOT NULL,
+    code VARCHAR(50) NOT NULL UNIQUE,
+    description TEXT,
+    address TEXT,
+    phone VARCHAR(20),
+    email VARCHAR(255),
+    website VARCHAR(255),
+    status ENUM('pending', 'approved', 'suspended', 'cancelled') DEFAULT 'pending',
+    approved_by INT NULL,
+    approved_at TIMESTAMP NULL,
+    subscription_plan ENUM('basic', 'premium', 'enterprise') DEFAULT 'basic',
+    subscription_expires_at TIMESTAMP NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (approved_by) REFERENCES users(id)
+);
+
 -- Roles table
 CREATE TABLE roles (
     id INT PRIMARY KEY AUTO_INCREMENT,
@@ -20,6 +40,7 @@ CREATE TABLE users (
     email VARCHAR(255) NOT NULL UNIQUE,
     password VARCHAR(255) NOT NULL,
     role_id INT NOT NULL,
+    organization_id INT NULL,
     department VARCHAR(100),
     employee_id VARCHAR(50) UNIQUE,
     phone VARCHAR(20),
@@ -34,6 +55,7 @@ CREATE TABLE users (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (role_id) REFERENCES roles(id),
+    FOREIGN KEY (organization_id) REFERENCES organizations(id),
     FOREIGN KEY (validated_by) REFERENCES users(id)
 );
 
@@ -233,16 +255,48 @@ CREATE TABLE settings (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
 
--- Insert default roles
+-- Insert default roles (Updated for new role structure)
 INSERT INTO roles (name, description) VALUES
-('admin', 'System administrator with full access'),
+('super_admin', 'Super Administrator with system-wide access across all organizations'),
+('org_admin', 'Organization Administrator with full access within their organization'),
+('finance_manager', 'Finance Manager with financial and marketing management access'),
 ('teacher', 'Teacher with course management access'),
-('student', 'Student with limited access'),
-('staff', 'Staff member with administrative access');
+('student', 'Student with limited access');
 
--- Insert default admin user (password: admin123)
-INSERT INTO users (name, email, password, role_id, department, employee_id) VALUES
-('Admin User', 'admin@vertexlearn.com', '$2b$12$qqOYbfgXd8vLtD1RAAgKyuH8vUs71pE6akjwkNn6ouzWlVA.dcYgO', 1, 'Administration', 'ADMIN001');
+-- Insert test organizations
+INSERT INTO organizations (name, code, description, address, phone, email, website, status, subscription_plan) VALUES
+('Vertex University', 'VU001', 'Main university campus for testing', '123 Education Street, Learning City', '+1-555-0123', 'info@vertexuni.edu', 'https://vertexuni.edu', 'approved', 'enterprise'),
+('Tech Academy', 'TA002', 'Technology focused academy', '456 Tech Boulevard, Innovation District', '+1-555-0456', 'contact@techacademy.edu', 'https://techacademy.edu', 'approved', 'premium'),
+('Community College', 'CC003', 'Local community college', '789 Community Lane, Downtown', '+1-555-0789', 'admin@communitycollege.edu', 'https://communitycollege.edu', 'pending', 'basic');
+
+-- Insert comprehensive test users (password for all: admin123)
+-- Super Admin (system-wide access, no organization)
+INSERT INTO users (name, email, password, role_id, organization_id, department, employee_id, phone, validation_status) VALUES
+('Super Administrator', 'superadmin@vertexlearn.com', '$2b$12$qqOYbfgXd8vLtD1RAAgKyuH8vUs71pE6akjwkNn6ouzWlVA.dcYgO', 1, NULL, 'System Administration', 'SUPER001', '+1-555-1001', 'approved');
+
+-- Organization Admins
+INSERT INTO users (name, email, password, role_id, organization_id, department, employee_id, phone, validation_status) VALUES
+('John Smith', 'admin@vertexuni.edu', '$2b$12$qqOYbfgXd8vLtD1RAAgKyuH8vUs71pE6akjwkNn6ouzWlVA.dcYgO', 2, 1, 'Administration', 'VU_ADMIN001', '+1-555-1002', 'approved'),
+('Sarah Johnson', 'admin@techacademy.edu', '$2b$12$qqOYbfgXd8vLtD1RAAgKyuH8vUs71pE6akjwkNn6ouzWlVA.dcYgO', 2, 2, 'Administration', 'TA_ADMIN001', '+1-555-1003', 'approved'),
+('Michael Brown', 'admin@communitycollege.edu', '$2b$12$qqOYbfgXd8vLtD1RAAgKyuH8vUs71pE6akjwkNn6ouzWlVA.dcYgO', 2, 3, 'Administration', 'CC_ADMIN001', '+1-555-1004', 'approved');
+
+-- Finance Managers
+INSERT INTO users (name, email, password, role_id, organization_id, department, employee_id, phone, validation_status) VALUES
+('Emma Wilson', 'finance@vertexuni.edu', '$2b$12$qqOYbfgXd8vLtD1RAAgKyuH8vUs71pE6akjwkNn6ouzWlVA.dcYgO', 3, 1, 'Finance', 'VU_FIN001', '+1-555-1005', 'approved'),
+('David Lee', 'finance@techacademy.edu', '$2b$12$qqOYbfgXd8vLtD1RAAgKyuH8vUs71pE6akjwkNn6ouzWlVA.dcYgO', 3, 2, 'Finance', 'TA_FIN001', '+1-555-1006', 'approved');
+
+-- Teachers
+INSERT INTO users (name, email, password, role_id, organization_id, department, employee_id, phone, validation_status) VALUES
+('Dr. Alice Cooper', 'alice.cooper@vertexuni.edu', '$2b$12$qqOYbfgXd8vLtD1RAAgKyuH8vUs71pE6akjwkNn6ouzWlVA.dcYgO', 4, 1, 'Computer Science', 'VU_TEACH001', '+1-555-1007', 'approved'),
+('Prof. Robert Davis', 'robert.davis@vertexuni.edu', '$2b$12$qqOYbfgXd8vLtD1RAAgKyuH8vUs71pE6akjwkNn6ouzWlVA.dcYgO', 4, 1, 'Mathematics', 'VU_TEACH002', '+1-555-1008', 'approved'),
+('Ms. Lisa Chen', 'lisa.chen@techacademy.edu', '$2b$12$qqOYbfgXd8vLtD1RAAgKyuH8vUs71pE6akjwkNn6ouzWlVA.dcYgO', 4, 2, 'Web Development', 'TA_TEACH001', '+1-555-1009', 'approved');
+
+-- Students
+INSERT INTO users (name, email, password, role_id, organization_id, department, employee_id, phone, validation_status) VALUES
+('James Rodriguez', 'james.rodriguez@student.vertexuni.edu', '$2b$12$qqOYbfgXd8vLtD1RAAgKyuH8vUs71pE6akjwkNn6ouzWlVA.dcYgO', 5, 1, 'Computer Science', 'VU_STU001', '+1-555-1010', 'approved'),
+('Maria Garcia', 'maria.garcia@student.vertexuni.edu', '$2b$12$qqOYbfgXd8vLtD1RAAgKyuH8vUs71pE6akjwkNn6ouzWlVA.dcYgO', 5, 1, 'Mathematics', 'VU_STU002', '+1-555-1011', 'approved'),
+('Kevin Park', 'kevin.park@student.techacademy.edu', '$2b$12$qqOYbfgXd8vLtD1RAAgKyuH8vUs71pE6akjwkNn6ouzWlVA.dcYgO', 5, 2, 'Web Development', 'TA_STU001', '+1-555-1012', 'approved'),
+('Sophie Turner', 'sophie.turner@student.communitycollege.edu', '$2b$12$qqOYbfgXd8vLtD1RAAgKyuH8vUs71pE6akjwkNn6ouzWlVA.dcYgO', 5, 3, 'General Studies', 'CC_STU001', '+1-555-1013', 'approved');
 
 -- Insert default settings
 INSERT INTO settings (key_name, value, description) VALUES

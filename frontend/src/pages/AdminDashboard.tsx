@@ -1,5 +1,8 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import SuperAdminOrganizations from "../components/SuperAdminOrganizations";
+import SuperAdminSystemManagement from "../components/SuperAdminSystemManagement";
+import MarketingFinanceDashboard from "./MarketingFinanceDashboard";
 import {
   Users,
   UserCheck,
@@ -158,27 +161,57 @@ const AdminDashboard = () => {
   const [verificationQueue, setVerificationQueue] = useState<any[]>([]);
   const [leaveRequests, setLeaveRequests] = useState<any[]>([]);
   const [recentActivity, setRecentActivity] = useState<any[]>([]);
+  const [currentUser, setCurrentUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const menuItems = [
-    { name: "Dashboard Home", view: "dashboard", icon: Home },
-    { name: "User Verification", view: "verification", icon: UserCheck },
-    {
-      name: "Finance & Marketing",
-      view: "finance",
-      icon: DollarSign,
-      route: "/marketing-finance",
-    },
-    { name: "System Access", view: "system", icon: Shield },
-    { name: "Employee Management", view: "employees", icon: UserCog },
-    { name: "Payroll", view: "payroll", icon: DollarSign },
-    { name: "Leave Management", view: "leave", icon: Calendar },
-    { name: "Performance Tracking", view: "performance", icon: BarChart3 },
-    { name: "Asset Management", view: "assets", icon: Building },
-    { name: "Notifications", view: "notifications", icon: Bell },
-    { name: "Settings", view: "settings", icon: Settings },
-  ];
+  // Build menu items based on user role
+  const getMenuItems = () => {
+    const baseItems = [
+      { name: "Dashboard Home", view: "dashboard", icon: Home },
+      { name: "User Verification", view: "verification", icon: UserCheck },
+    ];
+
+    // Debug: log current user info
+    console.log("Current user for menu:", currentUser);
+    console.log("Role:", currentUser?.role);
+
+    // Add school management for super admins AND regular admins
+    // Role is stored directly as a string, not in a nested object
+    if (currentUser?.role === "super_admin" || currentUser?.role === "admin") {
+      console.log("Adding Organization Management");
+      baseItems.push({
+        name: "Organization Management",
+        view: "schools",
+        icon: Building,
+      });
+
+      // Add Marketing & Finance module for admins (school admins)
+      if (currentUser?.role === "admin") {
+        console.log("Adding Marketing & Finance module for admin");
+        baseItems.push({
+          name: "Marketing & Finance",
+          view: "marketing-finance",
+          icon: DollarSign,
+        });
+      }
+    }
+
+    // Add remaining items (remove finance/payroll for now as requested)
+    baseItems.push(
+      { name: "System Access", view: "system", icon: Shield },
+      { name: "Employee Management", view: "employees", icon: UserCog },
+      { name: "Leave Management", view: "leave", icon: Calendar },
+      { name: "Performance Tracking", view: "performance", icon: BarChart3 },
+      { name: "Asset Management", view: "assets", icon: Building },
+      { name: "Notifications", view: "notifications", icon: Bell },
+      { name: "Settings", view: "settings", icon: Settings }
+    );
+
+    return baseItems;
+  };
+
+  const menuItems = getMenuItems();
 
   // Fetch dashboard data
   useEffect(() => {
@@ -215,7 +248,17 @@ const AdminDashboard = () => {
           const userInfo = await api.get("/auth/me");
           console.log("Current user:", userInfo);
 
-          if (userInfo.user?.role?.name !== "admin") {
+          // Fix: role is stored in nested object, extract the name
+          const userRole = userInfo.user?.role?.name || userInfo.user?.role;
+          console.log("User role:", userRole);
+
+          // Set user with extracted role for menu generation
+          setCurrentUser({
+            ...userInfo.user,
+            role: userRole,
+          });
+
+          if (!["admin", "super_admin"].includes(userRole)) {
             setError("Access denied. Admin privileges required.");
             setLoading(false);
             return;
@@ -227,25 +270,21 @@ const AdminDashboard = () => {
           return;
         }
 
-        // Fetch verification stats
-        const verificationStats = await api.get(
-          "/verifications/stats/overview"
-        );
-        console.log("Verification stats:", verificationStats);
+        // Fetch approval stats
+        const approvalStats = await api.get("/approval/approval-stats");
+        console.log("Approval stats:", approvalStats);
 
         setStats({
-          totalUsers: verificationStats.totalVerifications || 0,
-          pendingVerifications: verificationStats.pendingVerifications || 0,
-          verifiedCount: verificationStats.verifiedCount || 0,
-          rejectedCount: verificationStats.rejectedCount || 0,
+          totalUsers: approvalStats.data?.total_users || 0,
+          pendingVerifications: approvalStats.data?.pending || 0,
+          verifiedCount: approvalStats.data?.approved || 0,
+          rejectedCount: approvalStats.data?.rejected || 0,
         });
 
-        // Fetch pending verifications
-        const verifications = await api.get(
-          "/verifications?status=pending&limit=10"
-        );
-        console.log("Pending verifications:", verifications);
-        setVerificationQueue(verifications.data || []);
+        // Fetch pending users for approval
+        const pendingUsers = await api.get("/approval/pending-users");
+        console.log("Pending users:", pendingUsers);
+        setVerificationQueue(pendingUsers.data || []);
 
         // Mock data for leave requests and recent activity
         setLeaveRequests([
@@ -336,19 +375,15 @@ const AdminDashboard = () => {
     fetchDashboardData();
   }, []);
 
-  // Handle verification approval
-  const handleApproveVerification = async (verificationId: number) => {
+  // Handle user approval
+  const handleApproveVerification = async (userId: number) => {
     try {
-      console.log("Approving verification:", verificationId);
+      console.log("Approving user:", userId);
 
-      await api.post(`/verifications/approve/${verificationId}`, {
-        comments: "Approved by admin",
-      });
+      await api.post(`/approval/approve-user/${userId}`);
 
       // Remove from queue
-      setVerificationQueue((prev) =>
-        prev.filter((v) => v.id !== verificationId)
-      );
+      setVerificationQueue((prev) => prev.filter((v) => v.id !== userId));
 
       // Update stats
       setStats((prev) => ({
@@ -357,29 +392,27 @@ const AdminDashboard = () => {
         verifiedCount: prev.verifiedCount + 1,
       }));
 
-      alert("Verification approved successfully!");
+      alert("User approved successfully!");
     } catch (err) {
-      console.error("Error approving verification:", err);
-      alert("Failed to approve verification");
+      console.error("Error approving user:", err);
+      alert("Failed to approve user");
     }
   };
 
-  // Handle verification rejection
-  const handleRejectVerification = async (verificationId: number) => {
+  // Handle user rejection
+  const handleRejectVerification = async (userId: number) => {
     const reason = prompt("Please provide a reason for rejection:");
     if (!reason) return;
 
     try {
-      console.log("Rejecting verification:", verificationId, "Reason:", reason);
+      console.log("Rejecting user:", userId, "Reason:", reason);
 
-      await api.post(`/verifications/reject/${verificationId}`, {
-        comments: reason,
+      await api.post(`/approval/reject-user/${userId}`, {
+        reason: reason,
       });
 
       // Remove from queue
-      setVerificationQueue((prev) =>
-        prev.filter((v) => v.id !== verificationId)
-      );
+      setVerificationQueue((prev) => prev.filter((v) => v.id !== userId));
 
       // Update stats
       setStats((prev) => ({
@@ -388,10 +421,10 @@ const AdminDashboard = () => {
         rejectedCount: prev.rejectedCount + 1,
       }));
 
-      alert("Verification rejected successfully!");
+      alert("User rejected successfully!");
     } catch (err) {
-      console.error("Error rejecting verification:", err);
-      alert("Failed to reject verification");
+      console.error("Error rejecting user:", err);
+      alert("Failed to reject user");
     }
   };
 
@@ -423,6 +456,15 @@ const AdminDashboard = () => {
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString();
   };
+
+  // Render MarketingFinanceDashboard as standalone when selected
+  if (currentView === "marketing-finance") {
+    return (
+      <MarketingFinanceDashboard
+        onBackToAdmin={() => setCurrentView("dashboard")}
+      />
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -985,13 +1027,13 @@ const AdminDashboard = () => {
                 <Button
                   variant="blue"
                   onClick={() => {
-                    // Refresh verification data
+                    // Refresh pending users data
                     const fetchData = async () => {
                       try {
-                        const verifications = await api.get(
-                          "/verifications?status=pending&limit=50"
+                        const pendingUsers = await api.get(
+                          "/approval/pending-users"
                         );
-                        setVerificationQueue(verifications.data || []);
+                        setVerificationQueue(pendingUsers.data || []);
                       } catch (err) {
                         console.error("Error refreshing data:", err);
                       }
@@ -1022,10 +1064,10 @@ const AdminDashboard = () => {
                           EMAIL
                         </th>
                         <th className="text-left py-3 px-4 font-medium text-gray-600 text-sm">
-                          ROLE REQUESTED
+                          ROLE
                         </th>
                         <th className="text-left py-3 px-4 font-medium text-gray-600 text-sm">
-                          DEPARTMENT
+                          SCHOOL
                         </th>
                         <th className="text-left py-3 px-4 font-medium text-gray-600 text-sm">
                           SUBMITTED
@@ -1047,60 +1089,60 @@ const AdminDashboard = () => {
                           >
                             <UserCheck className="h-12 w-12 text-gray-300 mx-auto mb-4" />
                             <div className="text-lg font-medium">
-                              No pending verifications
+                              No pending approvals
                             </div>
                             <div className="text-sm">
-                              All verification requests have been processed
+                              All user registration requests have been processed
                             </div>
                           </td>
                         </tr>
                       ) : (
-                        verificationQueue.map((verification) => (
+                        verificationQueue.map((user) => (
                           <tr
-                            key={verification.id}
+                            key={user.id}
                             className="border-b border-gray-100 hover:bg-gray-50"
                           >
                             <td className="py-4 px-4">
                               <div className="flex items-center space-x-3">
                                 <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
                                   <span className="text-white text-sm font-medium">
-                                    {verification.user?.name?.charAt(0) || "U"}
+                                    {user.name?.charAt(0) || "U"}
                                   </span>
                                 </div>
                                 <div>
                                   <div className="font-medium text-gray-900">
-                                    {verification.user?.name || "Unknown User"}
+                                    {user.name || "Unknown User"}
                                   </div>
                                   <div className="text-sm text-gray-500">
                                     ID:{" "}
-                                    {verification.user?.employeeId ||
-                                      verification.user?.studentId ||
+                                    {user.employee_id ||
+                                      user.student_id ||
                                       "N/A"}
                                   </div>
                                 </div>
                               </div>
                             </td>
                             <td className="py-4 px-4 text-gray-600">
-                              {verification.user?.email || "N/A"}
+                              {user.email || "N/A"}
                             </td>
                             <td className="py-4 px-4">
                               <span
                                 className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getRoleColor(
-                                  verification.role
+                                  user.role_name
                                 )} bg-gray-100`}
                               >
-                                {verification.role}
+                                {user.role_name}
                               </span>
                             </td>
                             <td className="py-4 px-4 text-gray-600">
-                              {verification.user?.department || "N/A"}
+                              {user.organization_name || "N/A"}
                             </td>
                             <td className="py-4 px-4 text-gray-600">
-                              {formatDate(verification.submissionDate)}
+                              {formatDate(user.created_at)}
                             </td>
                             <td className="py-4 px-4">
                               <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
-                                {verification.status}
+                                {user.approval_status}
                               </span>
                             </td>
                             <td className="py-4 px-4">
@@ -1109,7 +1151,7 @@ const AdminDashboard = () => {
                                   size="sm"
                                   variant="green"
                                   onClick={() =>
-                                    handleApproveVerification(verification.id)
+                                    handleApproveVerification(user.id)
                                   }
                                 >
                                   <Check className="h-3 w-3 mr-1" />
@@ -1119,7 +1161,7 @@ const AdminDashboard = () => {
                                   size="sm"
                                   variant="red"
                                   onClick={() =>
-                                    handleRejectVerification(verification.id)
+                                    handleRejectVerification(user.id)
                                   }
                                 >
                                   <X className="h-3 w-3 mr-1" />
@@ -1141,187 +1183,14 @@ const AdminDashboard = () => {
             </div>
           )}
 
-          {/* System Access Management */}
+          {/* Organization Management - Super Admin Only */}
+          {!loading && !error && currentView === "schools" && (
+            <SuperAdminOrganizations />
+          )}
+
+          {/* System Administration - Super Admin Only */}
           {!loading && !error && currentView === "system" && (
-            <div className="space-y-6">
-              <div className="flex items-center justify-between">
-                <h2 className="text-2xl font-semibold text-gray-900">
-                  System Access Management
-                </h2>
-                <Button variant="blue">Add New User</Button>
-              </div>
-
-              {/* Access Statistics */}
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                <Card className="p-6 bg-gradient-to-r from-blue-500 to-blue-600 text-white">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-blue-100 text-sm font-medium">
-                        Total Users
-                      </p>
-                      <p className="text-2xl font-bold text-white">245</p>
-                    </div>
-                    <Users className="h-8 w-8 text-blue-200" />
-                  </div>
-                </Card>
-                <Card className="p-6 bg-gradient-to-r from-green-500 to-green-600 text-white">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-green-100 text-sm font-medium">
-                        Active Sessions
-                      </p>
-                      <p className="text-2xl font-bold text-white">142</p>
-                    </div>
-                    <Shield className="h-8 w-8 text-green-200" />
-                  </div>
-                </Card>
-                <Card className="p-6 bg-gradient-to-r from-orange-500 to-orange-600 text-white">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-orange-100 text-sm font-medium">
-                        Permission Groups
-                      </p>
-                      <p className="text-2xl font-bold text-white">8</p>
-                    </div>
-                    <UserCog className="h-8 w-8 text-orange-200" />
-                  </div>
-                </Card>
-                <Card className="p-6 bg-gradient-to-r from-red-500 to-red-600 text-white">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-red-100 text-sm font-medium">
-                        Security Alerts
-                      </p>
-                      <p className="text-2xl font-bold text-white">3</p>
-                    </div>
-                    <AlertTriangle className="h-8 w-8 text-red-200" />
-                  </div>
-                </Card>
-              </div>
-
-              {/* User Access Table */}
-              <Card className="bg-white p-6">
-                <div className="flex items-center justify-between mb-6">
-                  <h3 className="text-lg font-semibold text-gray-900">
-                    User Access Control
-                  </h3>
-                  <div className="flex space-x-2">
-                    <Button variant="outline" size="sm">
-                      Filter
-                    </Button>
-                    <Button variant="outline" size="sm">
-                      Export
-                    </Button>
-                  </div>
-                </div>
-
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead>
-                      <tr className="border-b border-gray-200">
-                        <th className="text-left py-3 px-4 font-medium text-gray-600 text-sm">
-                          USER
-                        </th>
-                        <th className="text-left py-3 px-4 font-medium text-gray-600 text-sm">
-                          ROLE
-                        </th>
-                        <th className="text-left py-3 px-4 font-medium text-gray-600 text-sm">
-                          PERMISSIONS
-                        </th>
-                        <th className="text-left py-3 px-4 font-medium text-gray-600 text-sm">
-                          LAST LOGIN
-                        </th>
-                        <th className="text-left py-3 px-4 font-medium text-gray-600 text-sm">
-                          STATUS
-                        </th>
-                        <th className="text-left py-3 px-4 font-medium text-gray-600 text-sm">
-                          ACTIONS
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {[
-                        {
-                          id: 1,
-                          name: "John Smith",
-                          email: "john@school.edu",
-                          role: "Teacher",
-                          permissions: "Course Management",
-                          lastLogin: "2 hours ago",
-                          status: "Active",
-                        },
-                        {
-                          id: 2,
-                          name: "Sarah Johnson",
-                          email: "sarah@school.edu",
-                          role: "Admin",
-                          permissions: "Full Access",
-                          lastLogin: "1 day ago",
-                          status: "Active",
-                        },
-                        {
-                          id: 3,
-                          name: "Mike Chen",
-                          email: "mike@school.edu",
-                          role: "Staff",
-                          permissions: "Limited Access",
-                          lastLogin: "3 days ago",
-                          status: "Inactive",
-                        },
-                      ].map((user) => (
-                        <tr
-                          key={user.id}
-                          className="border-b border-gray-100 hover:bg-gray-50"
-                        >
-                          <td className="py-4 px-4">
-                            <div>
-                              <div className="font-medium text-gray-900">
-                                {user.name}
-                              </div>
-                              <div className="text-sm text-gray-500">
-                                {user.email}
-                              </div>
-                            </div>
-                          </td>
-                          <td className="py-4 px-4">
-                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                              {user.role}
-                            </span>
-                          </td>
-                          <td className="py-4 px-4 text-gray-600">
-                            {user.permissions}
-                          </td>
-                          <td className="py-4 px-4 text-gray-600">
-                            {user.lastLogin}
-                          </td>
-                          <td className="py-4 px-4">
-                            <span
-                              className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                                user.status === "Active"
-                                  ? "bg-green-100 text-green-800"
-                                  : "bg-red-100 text-red-800"
-                              }`}
-                            >
-                              {user.status}
-                            </span>
-                          </td>
-                          <td className="py-4 px-4">
-                            <div className="flex items-center space-x-2">
-                              <Button size="sm" variant="outline">
-                                Edit
-                              </Button>
-                              <Button size="sm" variant="red">
-                                Disable
-                              </Button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </Card>
-            </div>
+            <SuperAdminSystemManagement />
           )}
 
           {/* Employee Management */}

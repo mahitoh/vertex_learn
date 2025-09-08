@@ -9,7 +9,9 @@ import { ToastProvider } from "@/components/notifications/ToastProvider";
 import Index from "./pages/Index";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
+import SuperAdminDashboard from "./pages/SuperAdminDashboard";
 import AdminDashboard from "./pages/AdminDashboard";
+import FinanceManagerDashboard from "./pages/FinanceManagerDashboard";
 import AcademicDashboard from "@/pages/AcademicDashboard";
 import Courses from "@/pages/courses";
 import Attendance from "@/pages/attendance";
@@ -56,8 +58,12 @@ const ProtectedRoute = ({
   if (requiredRole && user.role.toLowerCase() !== requiredRole.toLowerCase()) {
     // Redirect to their appropriate dashboard based on their actual role
     const userRole = user.role.toLowerCase();
-    if (userRole === "admin") {
+    if (userRole === "super_admin") {
+      return <Navigate to="/super-admin" replace />;
+    } else if (userRole === "admin") {
       return <Navigate to="/admin" replace />;
+    } else if (userRole === "finance_manager") {
+      return <Navigate to="/finance" replace />;
     } else if (userRole === "teacher") {
       return <Navigate to="/teacher" replace />;
     } else if (userRole === "student") {
@@ -72,22 +78,41 @@ const ProtectedRoute = ({
 
 // Dashboard Router Component - Redirects to role-specific URLs
 const DashboardRouter = () => {
-  const { user } = useUser();
+  const { user, isLoading } = useUser();
 
+  // Show loading state while user data is being fetched
+  if (isLoading) {
+    return <div>Loading...</div>;
+  }
+
+  // Redirect to login if no user
   if (!user) {
     return <Navigate to="/login" replace />;
   }
 
+  // Safely handle role comparison with better error handling
+  if (!user.role) {
+    console.error("User role is missing:", user);
+    return <Navigate to="/login" replace />;
+  }
+
+  const userRole = user.role.toLowerCase();
+
   // Redirect to role-specific URLs
-  switch (user.role.toLowerCase()) {
+  switch (userRole) {
+    case "super_admin":
+      return <Navigate to="/super-admin" replace />;
     case "admin":
       return <Navigate to="/admin" replace />;
+    case "finance_manager":
+      return <Navigate to="/finance" replace />;
     case "teacher":
       return <Navigate to="/teacher" replace />;
     case "student":
       return <Navigate to="/student" replace />;
     default:
-      return <Navigate to="/admin" replace />;
+      console.error("Unknown user role:", user.role);
+      return <Navigate to="/login" replace />;
   }
 };
 
@@ -105,10 +130,26 @@ const AppRoutes = () => (
       }
     />
     <Route
+      path="/super-admin"
+      element={
+        <ProtectedRoute requiredRole="super_admin">
+          <SuperAdminDashboard />
+        </ProtectedRoute>
+      }
+    />
+    <Route
       path="/admin"
       element={
         <ProtectedRoute requiredRole="admin">
           <AdminDashboard />
+        </ProtectedRoute>
+      }
+    />
+    <Route
+      path="/finance"
+      element={
+        <ProtectedRoute requiredRole="finance_manager">
+          <FinanceManagerDashboard />
         </ProtectedRoute>
       }
     />

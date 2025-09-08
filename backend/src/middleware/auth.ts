@@ -1,6 +1,6 @@
-import { Request, Response, NextFunction } from 'express';
-import jwt from 'jsonwebtoken';
-import db from '../config/database.js';
+import { Request, Response, NextFunction } from "express";
+import jwt from "jsonwebtoken";
+import db from "../config/database.js";
 
 export interface AuthenticatedRequest extends Request {
   user?: {
@@ -20,60 +20,60 @@ export const authenticateJWT = async (
 ): Promise<void | Response> => {
   try {
     const authHeader = req.headers.authorization;
-    
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return res.status(401).json({ 
-        error: 'Access denied. No token provided.' 
+
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      return res.status(401).json({
+        error: "Access denied. No token provided.",
       });
     }
 
     const token = authHeader.substring(7); // Remove 'Bearer ' prefix
-    
+
     if (!process.env.JWT_SECRET) {
-      throw new Error('JWT_SECRET not configured');
+      throw new Error("JWT_SECRET not configured");
     }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET) as any;
-    
+
     // Get user with role and permissions
     const queryText = `
       SELECT 
         u.id, 
         u.email, 
         u.is_active,
-        u.validation_status,
+        u.approval_status,
+        u.role_id,
         r.name as role_name, 
         r.description as role_description
       FROM users u
       JOIN roles r ON u.role_id = r.id
       WHERE u.id = ?
     `;
-    
+
     const result = await db.query(queryText, [decoded.userId]);
     const user = result.rows[0];
-    
+
     if (!user || !user.is_active) {
-      return res.status(401).json({ 
-        error: 'Invalid or inactive user token.' 
+      return res.status(401).json({
+        error: "Invalid or inactive user token.",
       });
     }
 
-    console.log('User validation check:', {
+    console.log("User validation check:", {
       userId: user.id,
       email: user.email,
-      validation_status: user.validation_status,
-      role: user.role_name
+      role: user.role_name,
+      approval_status: user.approval_status,
     });
 
-    if (user.validation_status !== 'approved') {
-      return res.status(403).json({ 
-        error: 'Account not validated. Please wait for admin approval.',
-        debug: {
-          userId: user.id,
-          email: user.email,
-          validation_status: user.validation_status
-        }
-      });
+    // Check approval status for non-super admin users
+    if (user.role_name !== "super_admin") {
+      if (user.approval_status !== "approved") {
+        return res.status(401).json({
+          error:
+            "Account pending approval. Please wait for admin verification.",
+        });
+      }
     }
 
     req.user = {
@@ -81,43 +81,47 @@ export const authenticateJWT = async (
       userId: user.id, // Add for compatibility
       email: user.email,
       role: user.role_name,
-      permissions: user.role_description
+      permissions: user.role_description,
     };
 
     next();
     return;
   } catch (error) {
     if (error instanceof jwt.JsonWebTokenError) {
-      return res.status(401).json({ 
-        error: 'Invalid token.' 
-      });
-    }
-    
-    if (error instanceof jwt.TokenExpiredError) {
-      return res.status(401).json({ 
-        error: 'Token expired.' 
+      return res.status(401).json({
+        error: "Invalid token.",
       });
     }
 
-    console.error('Auth middleware error:', error);
-    return res.status(500).json({ 
-      error: 'Internal server error during authentication.' 
+    if (error instanceof jwt.TokenExpiredError) {
+      return res.status(401).json({
+        error: "Token expired.",
+      });
+    }
+
+    console.error("Auth middleware error:", error);
+    return res.status(500).json({
+      error: "Internal server error during authentication.",
     });
   }
 };
 
-// Role-based Access Control Middleware
+// Role-based Access Control Middleware (Updated for new role structure)
 export const requireRole = (allowedRoles: string[]) => {
-  return (req: AuthenticatedRequest, res: Response, next: NextFunction): Response | void => {
+  return (
+    req: AuthenticatedRequest,
+    res: Response,
+    next: NextFunction
+  ): Response | void => {
     if (!req.user) {
-      return res.status(401).json({ 
-        error: 'Authentication required.' 
+      return res.status(401).json({
+        error: "Authentication required.",
       });
     }
 
     if (!allowedRoles.includes(req.user.role)) {
-      return res.status(403).json({ 
-        error: 'Insufficient permissions for this action.' 
+      return res.status(403).json({
+        error: "Insufficient permissions for this action.",
       });
     }
 
@@ -128,21 +132,27 @@ export const requireRole = (allowedRoles: string[]) => {
 
 // Module Access Control Middleware
 export const requireModuleAccess = (module: string, action: string) => {
-  return (req: AuthenticatedRequest, res: Response, next: NextFunction): Response | void => {
+  return (
+    req: AuthenticatedRequest,
+    res: Response,
+    next: NextFunction
+  ): Response | void => {
     if (!req.user) {
-      return res.status(401).json({ 
-        error: 'Authentication required.' 
+      return res.status(401).json({
+        error: "Authentication required.",
       });
     }
 
     const permissions = req.user.permissions as any;
-    
+
     // Check if user has access to the module and action
-    if (!permissions || 
-        !permissions.modules?.includes(module) || 
-        !permissions.actions?.includes(action)) {
-      return res.status(403).json({ 
-        error: `Insufficient permissions for ${action} on ${module} module.` 
+    if (
+      !permissions ||
+      !permissions.modules?.includes(module) ||
+      !permissions.actions?.includes(action)
+    ) {
+      return res.status(403).json({
+        error: `Insufficient permissions for ${action} on ${module} module.`,
       });
     }
 
@@ -151,15 +161,37 @@ export const requireModuleAccess = (module: string, action: string) => {
   };
 };
 
-// Admin-only Access Middleware
-export const requireAdmin = requireRole(['admin']);
+// Updated Role-Specific Middleware for new role structure
+export const requireSuperAdmin = requireRole(["super_admin"]);
+export const requireOrgAdmin = requireRole(["org_admin"]);
+export const requireFinanceManager = requireRole(["finance_manager"]);
+export const requireTeacher = requireRole(["teacher"]);
+export const requireStudent = requireRole(["student"]);
 
-// Teacher or Admin Access Middleware
-export const requireTeacherOrAdmin = requireRole(['teacher', 'admin']);
+// Combined Role Access Middleware
+export const requireSuperOrOrgAdmin = requireRole(["super_admin", "org_admin"]);
+export const requireAdminOrFinance = requireRole([
+  "super_admin",
+  "org_admin",
+  "finance_manager",
+]);
+export const requireTeacherOrAdmin = requireRole([
+  "super_admin",
+  "org_admin",
+  "teacher",
+]);
+export const requireAnyStaff = requireRole([
+  "super_admin",
+  "org_admin",
+  "finance_manager",
+  "teacher",
+]);
 
-// Student Access Middleware
-export const requireStudent = requireRole(['student']);
-
-// Staff or Admin Access Middleware
-export const requireStaffOrAdmin = requireRole(['staff', 'admin']);
-
+// Legacy middleware (for backward compatibility)
+export const requireAdmin = requireRole(["super_admin", "org_admin"]); // Maps old 'admin' to new roles
+export const requireStaffOrAdmin = requireRole([
+  "super_admin",
+  "org_admin",
+  "finance_manager",
+  "teacher",
+]);

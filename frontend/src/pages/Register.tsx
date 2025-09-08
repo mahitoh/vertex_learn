@@ -1,10 +1,23 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Eye, EyeOff, GraduationCap, ArrowLeft, AlertCircle, CheckCircle } from "lucide-react";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import {
+  Eye,
+  EyeOff,
+  GraduationCap,
+  ArrowLeft,
+  AlertCircle,
+  CheckCircle,
+} from "lucide-react";
 import { useUser } from "@/contexts/UserContext";
 import { ApiError } from "@/services/api";
 
@@ -14,11 +27,14 @@ const Register = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const [organizations, setOrganizations] = useState<
+    Array<{ id: number; name: string }>
+  >([]);
   const [formData, setFormData] = useState({
     firstName: "",
     lastName: "",
     email: "",
-    organization: "",
+    organizationId: "",
     role: "student", // Default to student
     password: "",
     confirmPassword: "",
@@ -28,8 +44,29 @@ const Register = () => {
   const { register } = useUser();
   const navigate = useNavigate();
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value, type, checked } = e.target;
+  // Fetch approved organizations for dropdown
+  const fetchOrganizations = async () => {
+    try {
+      const response = await fetch(
+        "http://localhost:3000/api/schools/organizations"
+      );
+      if (response.ok) {
+        const data = await response.json();
+        setOrganizations(data.data || []);
+      }
+    } catch (error) {
+      console.error("Error fetching organizations:", error);
+    }
+  };
+
+  useEffect(() => {
+    fetchOrganizations();
+  }, []);
+
+  const handleInputChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
+  ) => {
+    const { name, value, type, checked } = e.target as HTMLInputElement;
     setFormData({
       ...formData,
       [name]: type === "checkbox" ? checked : value,
@@ -63,20 +100,20 @@ const Register = () => {
         lastName: formData.lastName,
         email: formData.email,
         password: formData.password,
-        organization: formData.organization,
-        roleId: formData.role === "teacher" ? 2 : 3, // 2 for teacher, 3 for student
+        organizationId: parseInt(formData.organizationId),
+        roleId: formData.role === "teacher" ? 3 : 4, // 3 for teacher, 4 for student (admin is 2)
       });
-      
+
       setSuccess(true);
       // Redirect to login after 3 seconds
       setTimeout(() => {
-        navigate('/login');
+        navigate("/login");
       }, 3000);
     } catch (err) {
       if (err instanceof ApiError) {
         setError(err.message);
       } else {
-        setError('An unexpected error occurred. Please try again.');
+        setError("An unexpected error occurred. Please try again.");
       }
     } finally {
       setIsLoading(false);
@@ -87,8 +124,8 @@ const Register = () => {
     <div className="min-h-screen bg-gradient-subtle flex items-center justify-center px-4 py-8">
       <div className="w-full max-w-md animate-fade-in">
         {/* Back to Home */}
-        <Link 
-          to="/" 
+        <Link
+          to="/"
           className="inline-flex items-center gap-2 text-muted-foreground hover:text-primary transition-colors mb-6"
         >
           <ArrowLeft className="h-4 w-4" />
@@ -101,7 +138,9 @@ const Register = () => {
               <GraduationCap className="h-8 w-8 text-primary" />
             </div>
             <div>
-              <CardTitle className="text-2xl font-bold">Create Account</CardTitle>
+              <CardTitle className="text-2xl font-bold">
+                Create Account
+              </CardTitle>
               <CardDescription className="text-muted-foreground">
                 Get started with VERTEX ERP Management System
               </CardDescription>
@@ -119,10 +158,11 @@ const Register = () => {
             {success && (
               <div className="flex items-center gap-2 p-3 text-sm text-green-600 bg-green-50 border border-green-200 rounded-md">
                 <CheckCircle className="h-4 w-4" />
-                Registration successful! You can now log in with your credentials. Redirecting to login...
+                Registration successful! You can now log in with your
+                credentials. Redirecting to login...
               </div>
             )}
-            
+
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-2">
@@ -168,65 +208,78 @@ const Register = () => {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="organization">School/Organization</Label>
-                <Input
-                  id="organization"
-                  name="organization"
-                  type="text"
-                  placeholder="Springfield Elementary School"
-                  value={formData.organization}
+                <Label htmlFor="organizationId">School/Organization</Label>
+                <select
+                  id="organizationId"
+                  name="organizationId"
+                  value={formData.organizationId}
                   onChange={handleInputChange}
                   required
-                  className="h-11"
-                />
+                  className="flex h-11 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <option value="">Select your school/organization</option>
+                  {organizations.map((org) => (
+                    <option key={org.id} value={org.id}>
+                      {org.name}
+                    </option>
+                  ))}
+                </select>
               </div>
 
               <div className="space-y-2">
                 <Label htmlFor="role">I am a...</Label>
                 <div className="grid grid-cols-2 gap-3">
-                  <div 
+                  <div
                     className={`p-4 border-2 rounded-lg cursor-pointer transition-all ${
-                      formData.role === 'student' 
-                        ? 'border-primary bg-primary/5' 
-                        : 'border-gray-200 hover:border-gray-300'
+                      formData.role === "student"
+                        ? "border-primary bg-primary/5"
+                        : "border-gray-200 hover:border-gray-300"
                     }`}
-                    onClick={() => setFormData({...formData, role: 'student'})}
+                    onClick={() =>
+                      setFormData({ ...formData, role: "student" })
+                    }
                   >
                     <div className="flex items-center space-x-3">
                       <input
                         type="radio"
                         name="role"
                         value="student"
-                        checked={formData.role === 'student'}
+                        checked={formData.role === "student"}
                         onChange={handleInputChange}
                         className="text-primary focus:ring-primary"
                       />
                       <div>
                         <div className="font-medium text-gray-900">Student</div>
-                        <div className="text-sm text-gray-500">I'm here to learn</div>
+                        <div className="text-sm text-gray-500">
+                          I'm here to learn
+                        </div>
                       </div>
                     </div>
                   </div>
-                  <div 
+                  <div
                     className={`p-4 border-2 rounded-lg cursor-pointer transition-all ${
-                      formData.role === 'teacher' 
-                        ? 'border-primary bg-primary/5' 
-                        : 'border-gray-200 hover:border-gray-300'
+                      formData.role === "teacher"
+                        ? "border-primary bg-primary/5"
+                        : "border-gray-200 hover:border-gray-300"
                     }`}
-                    onClick={() => setFormData({...formData, role: 'teacher'})}
+                    onClick={() =>
+                      setFormData({ ...formData, role: "teacher" })
+                    }
                   >
                     <div className="flex items-center space-x-3">
                       <input
                         type="radio"
                         name="role"
                         value="teacher"
-                        checked={formData.role === 'teacher'}
+                        checked={formData.role === "teacher"}
                         onChange={handleInputChange}
                         className="text-primary focus:ring-primary"
                       />
                       <div>
                         <div className="font-medium text-gray-900">Teacher</div>
-                        <div className="text-sm text-gray-500">I'm here to teach</div>
+                        <div className="text-sm text-gray-500">
+                          I'm here to teach
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -301,24 +354,37 @@ const Register = () => {
                   required
                   className="h-4 w-4 mt-1 rounded border-input text-primary focus:ring-primary"
                 />
-                <Label htmlFor="terms" className="text-sm text-muted-foreground leading-5">
+                <Label
+                  htmlFor="terms"
+                  className="text-sm text-muted-foreground leading-5"
+                >
                   I agree to the{" "}
-                  <Link to="/terms" className="text-primary hover:text-primary-dark">
+                  <Link
+                    to="/terms"
+                    className="text-primary hover:text-primary-dark"
+                  >
                     Terms of Service
                   </Link>{" "}
                   and{" "}
-                  <Link to="/privacy" className="text-primary hover:text-primary-dark">
+                  <Link
+                    to="/privacy"
+                    className="text-primary hover:text-primary-dark"
+                  >
                     Privacy Policy
                   </Link>
                 </Label>
               </div>
 
-              <Button 
-                type="submit" 
+              <Button
+                type="submit"
                 className="w-full h-11 bg-primary hover:bg-primary-dark"
                 disabled={isLoading || success}
               >
-                {isLoading ? 'Creating Account...' : success ? 'Account Created!' : 'Create Account'}
+                {isLoading
+                  ? "Creating Account..."
+                  : success
+                  ? "Account Created!"
+                  : "Create Account"}
               </Button>
             </form>
 
@@ -327,7 +393,9 @@ const Register = () => {
                 <div className="w-full border-t border-border" />
               </div>
               <div className="relative flex justify-center text-xs uppercase">
-                <span className="bg-background px-2 text-muted-foreground">Or continue with</span>
+                <span className="bg-background px-2 text-muted-foreground">
+                  Or continue with
+                </span>
               </div>
             </div>
 
@@ -354,7 +422,11 @@ const Register = () => {
                 Google
               </Button>
               <Button variant="outline" className="h-11">
-                <svg className="h-4 w-4 mr-2" fill="currentColor" viewBox="0 0 24 24">
+                <svg
+                  className="h-4 w-4 mr-2"
+                  fill="currentColor"
+                  viewBox="0 0 24 24"
+                >
                   <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
                 </svg>
                 Facebook

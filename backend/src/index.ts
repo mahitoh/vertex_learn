@@ -12,6 +12,10 @@ dotenv.config();
 
 // Import routes
 import authRoutes from './routes/auth.js';
+import approvalRoutes from './routes/approval.js';
+import schoolRoutes from './routes/schools.js';
+import organizationRoutes from './routes/organizations.js';
+import systemRoutes from './routes/system.js';
 import adminRoutes from './routes/admin.js';
 import userRoutes from './routes/users.js';
 import roleRoutes from './routes/roles.js';
@@ -111,6 +115,10 @@ app.use('/api/auth', authRoutes);
 app.use('/api/debug', debugRoutes);
 
 // Protected routes - require authentication
+app.use('/api/approval', approvalRoutes); // New approval system
+app.use('/api/schools', schoolRoutes); // School management
+app.use('/api/organizations', organizationRoutes); // Organization management (Super Admin)
+app.use('/api/system', systemRoutes); // System administration (Super Admin)
 app.use('/api/admin', adminRoutes);
 app.use('/api/users', authenticateJWT, userRoutes);
 app.use('/api/roles', authenticateJWT, roleRoutes);

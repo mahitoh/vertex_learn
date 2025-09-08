@@ -1,0 +1,157 @@
+// src/App.js
+import React, { useState } from "react";
+import 'bootstrap/dist/css/bootstrap.min.css';
+
+const API_URL = "http://localhost:5000/api/finance";
+
+function App() {
+  // States
+  const [studentResult, setStudentResult] = useState("");
+  const [invoiceResult, setInvoiceResult] = useState("");
+  const [expenseResult, setExpenseResult] = useState("");
+  const [campaignResult, setCampaignResult] = useState("");
+
+  // Ajouter un étudiant
+  const handleAddStudent = async (e) => {
+    e.preventDefault();
+    const form = e.target;
+    const res = await fetch(`${API_URL}/students`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: form.studentName.value,
+        email: form.studentEmail.value,
+        phone: form.studentPhone.value,
+      }),
+    });
+    setStudentResult(JSON.stringify(await res.json(), null, 2));
+    form.reset();
+  };
+
+  // Créer une facture
+  const handleAddInvoice = async (e) => {
+    e.preventDefault();
+    const form = e.target;
+    const res = await fetch(`${API_URL}/invoices`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        studentId: form.studentId.value,
+        amount: form.invoiceAmount.value,
+        dueDate: form.invoiceDueDate.value,
+        paymentMethod: form.invoicePaymentMethod.value,
+      }),
+    });
+    setInvoiceResult(JSON.stringify(await res.json(), null, 2));
+    form.reset();
+  };
+
+  // Ajouter une dépense
+  const handleAddExpense = async (e) => {
+    e.preventDefault();
+    const form = e.target;
+    const res = await fetch(`${API_URL}/expenses`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        category: form.expenseCategory.value,
+        description: form.expenseDescription.value,
+        amount: form.expenseAmount.value,
+      }),
+    });
+    setExpenseResult(JSON.stringify(await res.json(), null, 2));
+    form.reset();
+  };
+
+  // Récupérer les campagnes
+  const getCampaigns = async () => {
+    const res = await fetch(`${API_URL}/campaigns`);
+    setCampaignResult(JSON.stringify(await res.json(), null, 2));
+  };
+
+  return (
+    <div className="container my-4">
+      <h1 className="text-center text-primary mb-4">📊 Finance Dashboard</h1>
+
+      {/* Ajouter un étudiant */}
+      <div className="card mb-4 shadow-sm">
+        <div className="card-header bg-primary text-white">Ajouter un étudiant</div>
+        <div className="card-body">
+          <form className="row g-2" onSubmit={handleAddStudent}>
+            <div className="col-md-4">
+              <input type="text" name="studentName" className="form-control" placeholder="Nom" required />
+            </div>
+            <div className="col-md-4">
+              <input type="email" name="studentEmail" className="form-control" placeholder="Email" required />
+            </div>
+            <div className="col-md-3">
+              <input type="text" name="studentPhone" className="form-control" placeholder="Téléphone" />
+            </div>
+            <div className="col-md-1">
+              <button type="submit" className="btn btn-success w-100">➕</button>
+            </div>
+          </form>
+          <pre className="mt-3 bg-light p-2 rounded">{studentResult}</pre>
+        </div>
+      </div>
+
+      {/* Créer une facture */}
+      <div className="card mb-4 shadow-sm">
+        <div className="card-header bg-success text-white">Créer une facture</div>
+        <div className="card-body">
+          <form className="row g-2" onSubmit={handleAddInvoice}>
+            <div className="col-md-2">
+              <input type="number" name="studentId" className="form-control" placeholder="ID Étudiant" required />
+            </div>
+            <div className="col-md-2">
+              <input type="number" step="0.01" name="invoiceAmount" className="form-control" placeholder="Montant" required />
+            </div>
+            <div className="col-md-3">
+              <input type="date" name="invoiceDueDate" className="form-control" required />
+            </div>
+            <div className="col-md-3">
+              <input type="text" name="invoicePaymentMethod" className="form-control" placeholder="Méthode paiement" />
+            </div>
+            <div className="col-md-2">
+              <button type="submit" className="btn btn-success w-100">Créer</button>
+            </div>
+          </form>
+          <pre className="mt-3 bg-light p-2 rounded">{invoiceResult}</pre>
+        </div>
+      </div>
+
+      {/* Ajouter une dépense */}
+      <div className="card mb-4 shadow-sm">
+        <div className="card-header bg-danger text-white">Ajouter une dépense</div>
+        <div className="card-body">
+          <form className="row g-2" onSubmit={handleAddExpense}>
+            <div className="col-md-3">
+              <input type="text" name="expenseCategory" className="form-control" placeholder="Catégorie" required />
+            </div>
+            <div className="col-md-4">
+              <input type="text" name="expenseDescription" className="form-control" placeholder="Description" />
+            </div>
+            <div className="col-md-3">
+              <input type="number" step="0.01" name="expenseAmount" className="form-control" placeholder="Montant" required />
+            </div>
+            <div className="col-md-2">
+              <button type="submit" className="btn btn-danger w-100">Ajouter</button>
+            </div>
+          </form>
+          <pre className="mt-3 bg-light p-2 rounded">{expenseResult}</pre>
+        </div>
+      </div>
+
+      {/* Campagnes */}
+      <div className="card mb-4 shadow-sm">
+        <div className="card-header bg-warning">Campagnes</div>
+        <div className="card-body">
+          <button onClick={getCampaigns} className="btn btn-warning">Voir toutes les campagnes</button>
+          <pre className="mt-3 bg-light p-2 rounded">{campaignResult}</pre>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default App;

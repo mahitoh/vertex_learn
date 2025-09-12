@@ -1,0 +1,45 @@
+-- Connexion à la base
+
+
+-- Table Students
+CREATE TABLE IF NOT EXISTS Students (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    email VARCHAR(255) NOT NULL UNIQUE,
+    phone VARCHAR(50),
+    createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Table Invoices
+CREATE TABLE IF NOT EXISTS Invoices (
+    id SERIAL PRIMARY KEY,
+    studentId INT REFERENCES Students(id) ON DELETE SET NULL,
+    amount NUMERIC(10,2) NOT NULL,
+    dueDate DATE NOT NULL,
+    status VARCHAR(50) DEFAULT 'unpaid',
+    paymentMethod VARCHAR(50),
+    createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Table Expenses
+CREATE TABLE IF NOT EXISTS Expenses (
+    id SERIAL PRIMARY KEY,
+    category VARCHAR(100) NOT NULL,
+    description VARCHAR(255),
+    amount NUMERIC(10,2) NOT NULL,
+    createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Table Campaigns
+CREATE TABLE IF NOT EXISTS Campaigns (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    leads INT DEFAULT 0,
+    conversions INT DEFAULT 0,
+    roi NUMERIC(10,2) DEFAULT 0,
+    createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
